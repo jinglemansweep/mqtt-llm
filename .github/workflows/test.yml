@@ -108,7 +108,7 @@ jobs:
         )
         ollama_config = OllamaConfig(model='test-model')
         app_config = AppConfig(mqtt=mqtt_config, ollama=ollama_config)
-        
+
         print('✓ Configuration objects created successfully')
         print(f'✓ MQTT broker: {app_config.mqtt.broker}')
         print(f'✓ Ollama model: {app_config.ollama.model}')

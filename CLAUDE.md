@@ -39,7 +39,7 @@ mqtt-llm --mqtt-broker localhost --mqtt-subscribe-topic input/messages --mqtt-pu
 
 # Run with environment variables (see cli.py for all available env vars)
 export MQTT_BROKER=localhost
-export MQTT_SUBSCRIBE_TOPIC=input/messages  
+export MQTT_SUBSCRIBE_TOPIC=input/messages
 export MQTT_PUBLISH_TOPIC=output/responses
 export OLLAMA_MODEL=llama3
 mqtt-llm
@@ -62,7 +62,7 @@ pre-commit run --all-files
 The application uses a hierarchical configuration system (CLI args > env vars > defaults) managed through Pydantic models:
 
 - **MQTTConfig**: MQTT broker connection, topics, QoS, message processing options
-- **OllamaConfig**: Ollama API URL, model selection, generation parameters  
+- **OllamaConfig**: Ollama API URL, model selection, generation parameters
 - **AppConfig**: Top-level configuration combining MQTT and Ollama settings
 
 All configuration options can be set via environment variables (see `src/mqtt_llm/cli.py:16-130` for complete list).
@@ -70,7 +70,7 @@ All configuration options can be set via environment variables (see `src/mqtt_ll
 ## Message Processing Flow
 
 1. MQTT messages are received and filtered by trigger pattern (default: `@ai`)
-2. Message content is extracted using JSONPath (default: `$.text`)  
+2. Message content is extracted using JSONPath (default: `$.text`)
 3. Text is sent to Ollama API for processing
 4. Response is formatted using publish template (default: `{response}`)
 5. Response is published to configured MQTT topic
@@ -80,7 +80,7 @@ All configuration options can be set via environment variables (see `src/mqtt_ll
 - **paho-mqtt**: MQTT client library
 - **aiohttp**: Async HTTP client for Ollama API
 - **pydantic**: Configuration validation and parsing
-- **click**: Command-line interface framework  
+- **click**: Command-line interface framework
 - **jsonpath-ng**: JSON path extraction for message processing
 
 ## Entry Points
