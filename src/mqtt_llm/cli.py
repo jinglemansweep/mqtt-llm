@@ -200,58 +200,76 @@ def main(
         # CLI arguments override environment variables
         mqtt_config = MQTTConfig(
             broker=mqtt_broker or os.getenv("MQTT_BROKER", ""),
-            port=mqtt_port
-            if mqtt_port != 1883
-            else int(os.getenv("MQTT_PORT", "1883")),
+            port=(
+                mqtt_port
+                if mqtt_port != 1883
+                else int(os.getenv("MQTT_PORT", "1883"))
+            ),
             username=mqtt_username or os.getenv("MQTT_USERNAME"),
             password=mqtt_password or os.getenv("MQTT_PASSWORD"),
             client_id=mqtt_client_id
             or os.getenv("MQTT_CLIENT_ID", str(uuid4())),
             subscribe_topic=mqtt_subscribe_topic
             or os.getenv("MQTT_SUBSCRIBE_TOPIC", ""),
-            subscribe_path=mqtt_subscribe_path
-            if mqtt_subscribe_path != "$.text"
-            else os.getenv("MQTT_SUBSCRIBE_PATH", "$.text"),
+            subscribe_path=(
+                mqtt_subscribe_path
+                if mqtt_subscribe_path != "$.text"
+                else os.getenv("MQTT_SUBSCRIBE_PATH", "$.text")
+            ),
             publish_topic=mqtt_publish_topic
             or os.getenv("MQTT_PUBLISH_TOPIC", ""),
-            publish_template=mqtt_publish_template
-            if mqtt_publish_template != "{response}"
-            else os.getenv("MQTT_PUBLISH_TEMPLATE", "{response}"),
+            publish_template=(
+                mqtt_publish_template
+                if mqtt_publish_template != "{response}"
+                else os.getenv("MQTT_PUBLISH_TEMPLATE", "{response}")
+            ),
             qos=mqtt_qos if mqtt_qos != 0 else int(os.getenv("MQTT_QOS", "0")),
             retain=mqtt_retain
             or os.getenv("MQTT_RETAIN", "false").lower() == "true",
             sanitize_response=mqtt_sanitize_response
             or os.getenv("MQTT_SANITIZE_RESPONSE", "false").lower() == "true",
-            trigger_pattern=mqtt_trigger_pattern
-            if mqtt_trigger_pattern != "@ai"
-            else os.getenv("MQTT_TRIGGER_PATTERN", "@ai"),
+            trigger_pattern=(
+                mqtt_trigger_pattern
+                if mqtt_trigger_pattern != "@ai"
+                else os.getenv("MQTT_TRIGGER_PATTERN", "@ai")
+            ),
         )
 
         ollama_config = OllamaConfig(
-            api_url=ollama_api_url
-            if ollama_api_url != "http://localhost:11434"
-            else os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
+            api_url=(
+                ollama_api_url
+                if ollama_api_url != "http://localhost:11434"
+                else os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+            ),
             api_key=ollama_api_key or os.getenv("OLLAMA_API_KEY"),
             model=ollama_model or os.getenv("OLLAMA_MODEL", ""),
-            system_prompt=ollama_system_prompt
-            if ollama_system_prompt != "You are a helpful assistant."
-            else os.getenv(
-                "OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."
+            system_prompt=(
+                ollama_system_prompt
+                if ollama_system_prompt != "You are a helpful assistant."
+                else os.getenv(
+                    "OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."
+                )
             ),
-            timeout=ollama_timeout
-            if ollama_timeout != 30.0
-            else float(os.getenv("OLLAMA_TIMEOUT", "30.0")),
-            max_tokens=ollama_max_tokens
-            if ollama_max_tokens != 1000
-            else int(os.getenv("OLLAMA_MAX_TOKENS", "1000")),
+            timeout=(
+                ollama_timeout
+                if ollama_timeout != 30.0
+                else float(os.getenv("OLLAMA_TIMEOUT", "30.0"))
+            ),
+            max_tokens=(
+                ollama_max_tokens
+                if ollama_max_tokens != 1000
+                else int(os.getenv("OLLAMA_MAX_TOKENS", "1000"))
+            ),
         )
 
         app_config = AppConfig(
             mqtt=mqtt_config,
             ollama=ollama_config,
-            log_level=log_level
-            if log_level != "INFO"
-            else os.getenv("LOG_LEVEL", "INFO"),
+            log_level=(
+                log_level
+                if log_level != "INFO"
+                else os.getenv("LOG_LEVEL", "INFO")
+            ),
         )
 
         # Validate the complete configuration

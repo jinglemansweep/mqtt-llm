@@ -179,9 +179,9 @@ class MQTTLLMBridge:
         """Get bridge status information."""
         return {
             "running": self.running,
-            "mqtt_connected": self.mqtt_client.is_connected()
-            if self.mqtt_client
-            else False,
+            "mqtt_connected": (
+                self.mqtt_client.is_connected() if self.mqtt_client else False
+            ),
             "ollama_url": self.config.ollama.api_url,
             "ollama_model": self.config.ollama.model,
             "mqtt_broker": f"{self.config.mqtt.broker}:{self.config.mqtt.port}",
