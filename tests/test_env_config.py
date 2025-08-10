@@ -9,7 +9,9 @@ from mqtt_llm.config import AppConfig
 class TestEnvironmentConfig:
     """Test environment variable configuration loading."""
 
-    def test_from_env_valid_config(self, monkeypatch):
+    def test_from_env_valid_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test loading valid configuration from environment variables."""
         # Set environment variables
         env_vars = {
@@ -47,7 +49,7 @@ class TestEnvironmentConfig:
         assert config.ollama.max_tokens == 500
         assert config.log_level == "DEBUG"
 
-    def test_from_env_defaults(self, monkeypatch):
+    def test_from_env_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that defaults are used when environment variables are not set."""
         # Clear any existing environment variables
         env_vars = [
@@ -88,35 +90,47 @@ class TestEnvironmentConfig:
         assert config.ollama.max_tokens == 1000
         assert config.log_level == "INFO"
 
-    def test_from_env_invalid_port(self, monkeypatch):
+    def test_from_env_invalid_port(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test error handling for invalid MQTT port."""
         monkeypatch.setenv("MQTT_PORT", "not_a_number")
 
         with pytest.raises(ValueError, match="Invalid MQTT_PORT value"):
             AppConfig.from_env()
 
-    def test_from_env_invalid_qos(self, monkeypatch):
+    def test_from_env_invalid_qos(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test error handling for invalid MQTT QoS."""
         monkeypatch.setenv("MQTT_QOS", "invalid")
 
         with pytest.raises(ValueError, match="Invalid MQTT_QOS value"):
             AppConfig.from_env()
 
-    def test_from_env_invalid_timeout(self, monkeypatch):
+    def test_from_env_invalid_timeout(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test error handling for invalid Ollama timeout."""
         monkeypatch.setenv("OLLAMA_TIMEOUT", "not_a_float")
 
         with pytest.raises(ValueError, match="Invalid OLLAMA_TIMEOUT value"):
             AppConfig.from_env()
 
-    def test_from_env_invalid_max_tokens(self, monkeypatch):
+    def test_from_env_invalid_max_tokens(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test error handling for invalid max tokens."""
         monkeypatch.setenv("OLLAMA_MAX_TOKENS", "not_an_int")
 
-        with pytest.raises(ValueError, match="Invalid OLLAMA_MAX_TOKENS value"):
+        with pytest.raises(
+            ValueError, match="Invalid OLLAMA_MAX_TOKENS value"
+        ):
             AppConfig.from_env()
 
-    def test_retain_boolean_parsing(self, monkeypatch):
+    def test_retain_boolean_parsing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test MQTT retain boolean parsing variations."""
         test_cases = [
             ("true", True),
@@ -141,7 +155,7 @@ class TestEnvironmentConfig:
 class TestConfigValidation:
     """Test configuration validation methods."""
 
-    def test_validate_config_success(self):
+    def test_validate_config_success(self) -> None:
         """Test successful configuration validation."""
         from mqtt_llm.config import MQTTConfig, OllamaConfig
 
@@ -156,7 +170,7 @@ class TestConfigValidation:
         # Should not raise any exception
         config.validate_config()
 
-    def test_validate_config_missing_broker(self):
+    def test_validate_config_missing_broker(self) -> None:
         """Test validation fails with missing MQTT broker."""
         from mqtt_llm.config import MQTTConfig, OllamaConfig
 
@@ -171,7 +185,7 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="MQTT broker is required"):
             config.validate_config()
 
-    def test_validate_config_invalid_qos(self):
+    def test_validate_config_invalid_qos(self) -> None:
         """Test validation fails with invalid QoS during creation."""
         from mqtt_llm.config import MQTTConfig, OllamaConfig
 
@@ -186,7 +200,7 @@ class TestConfigValidation:
                 qos=5,  # Invalid QoS
             )
 
-    def test_validate_config_missing_model(self):
+    def test_validate_config_missing_model(self) -> None:
         """Test validation fails with missing Ollama model."""
         from mqtt_llm.config import MQTTConfig, OllamaConfig
 
@@ -201,7 +215,7 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="Ollama model is required"):
             config.validate_config()
 
-    def test_get_summary(self):
+    def test_get_summary(self) -> None:
         """Test configuration summary generation."""
         from mqtt_llm.config import MQTTConfig, OllamaConfig
 
@@ -219,7 +233,9 @@ class TestConfigValidation:
             timeout=45.0,
             max_tokens=500,
         )
-        config = AppConfig(mqtt=mqtt_config, ollama=ollama_config, log_level="DEBUG")
+        config = AppConfig(
+            mqtt=mqtt_config, ollama=ollama_config, log_level="DEBUG"
+        )
 
         summary = config.get_summary()
 

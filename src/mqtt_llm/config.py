@@ -21,11 +21,15 @@ class MQTTConfig(BaseModel):
     subscribe_path: str = Field(
         default="$.text", description="JSON path for extracting text content"
     )
-    publish_topic: str = Field(..., description="Topic to publish responses to")
+    publish_topic: str = Field(
+        ..., description="Topic to publish responses to"
+    )
     publish_template: Union[str, dict] = Field(
         default="{response}", description="Template for response messages"
     )
-    qos: int = Field(default=0, ge=0, le=2, description="Quality of Service level")
+    qos: int = Field(
+        default=0, ge=0, le=2, description="Quality of Service level"
+    )
     retain: bool = Field(default=False, description="Retain messages")
     sanitize_response: bool = Field(
         default=False,
@@ -36,9 +40,9 @@ class MQTTConfig(BaseModel):
         description="Regex pattern that must be present in message to trigger AI call",
     )
 
-    @field_validator("port")
+    @field_validator("port")  # type: ignore[misc]
     @classmethod
-    def validate_port(cls, v):
+    def validate_port(cls, v: int) -> int:
         """Validate MQTT port range."""
         if not 1 <= v <= 65535:
             raise ValueError("Port must be between 1 and 65535")
@@ -48,13 +52,18 @@ class MQTTConfig(BaseModel):
 class OllamaConfig(BaseModel):
     """Ollama API configuration settings."""
 
-    api_url: str = Field(default="http://localhost:11434", description="Ollama API URL")
+    api_url: str = Field(
+        default="http://localhost:11434", description="Ollama API URL"
+    )
     api_key: Optional[str] = Field(default=None, description="Ollama API key")
     model: str = Field(..., description="Ollama model name")
     system_prompt: str = Field(
-        default="You are a helpful assistant.", description="System prompt for LLM"
+        default="You are a helpful assistant.",
+        description="System prompt for LLM",
     )
-    timeout: float = Field(default=30.0, gt=0, description="API request timeout")
+    timeout: float = Field(
+        default=30.0, gt=0, description="API request timeout"
+    )
     max_tokens: int = Field(
         default=1000, gt=0, description="Maximum tokens in response"
     )
@@ -67,9 +76,9 @@ class AppConfig(BaseModel):
     ollama: OllamaConfig
     log_level: str = Field(default="INFO", description="Logging level")
 
-    @field_validator("log_level")
+    @field_validator("log_level")  # type: ignore[misc]
     @classmethod
-    def validate_log_level(cls, v):
+    def validate_log_level(cls, v: str) -> str:
         """Validate logging level."""
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in valid_levels:
@@ -103,7 +112,9 @@ class AppConfig(BaseModel):
             mqtt_retain = mqtt_retain_str in ("true", "1", "yes", "on")
 
             # Parse MQTT sanitize response boolean
-            mqtt_sanitize_str = os.getenv("MQTT_SANITIZE_RESPONSE", "false").lower()
+            mqtt_sanitize_str = os.getenv(
+                "MQTT_SANITIZE_RESPONSE", "false"
+            ).lower()
             mqtt_sanitize = mqtt_sanitize_str in ("true", "1", "yes", "on")
 
             mqtt_config = MQTTConfig(
@@ -115,7 +126,9 @@ class AppConfig(BaseModel):
                 subscribe_topic=os.getenv("MQTT_SUBSCRIBE_TOPIC", ""),
                 subscribe_path=os.getenv("MQTT_SUBSCRIBE_PATH", "$.text"),
                 publish_topic=os.getenv("MQTT_PUBLISH_TOPIC", ""),
-                publish_template=os.getenv("MQTT_PUBLISH_TEMPLATE", "{response}"),
+                publish_template=os.getenv(
+                    "MQTT_PUBLISH_TEMPLATE", "{response}"
+                ),
                 qos=mqtt_qos,
                 retain=mqtt_retain,
                 sanitize_response=mqtt_sanitize,
@@ -158,7 +171,9 @@ class AppConfig(BaseModel):
             )
 
         except ValueError as e:
-            raise ValueError(f"Configuration error from environment variables: {e}")
+            raise ValueError(
+                f"Configuration error from environment variables: {e}"
+            )
 
     def validate_config(self) -> None:
         """Validate the complete configuration and check for issues."""
@@ -178,7 +193,9 @@ class AppConfig(BaseModel):
 
         # Validate MQTT port range
         if not 1 <= self.mqtt.port <= 65535:
-            errors.append(f"MQTT port must be between 1-65535, got: {self.mqtt.port}")
+            errors.append(
+                f"MQTT port must be between 1-65535, got: {self.mqtt.port}"
+            )
 
         # Validate required Ollama fields
         if not self.ollama.model:

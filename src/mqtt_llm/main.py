@@ -1,7 +1,7 @@
 """Main entry point for MQTT-LLM bridge application."""
 
 
-def main():
+def main() -> None:
     """Run the main entry point."""
     from .cli import main as cli_main
 

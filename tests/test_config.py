@@ -6,10 +6,12 @@ from pydantic import ValidationError
 from mqtt_llm.config import AppConfig, MQTTConfig, OllamaConfig
 
 
-def test_mqtt_config_defaults():
+def test_mqtt_config_defaults() -> None:
     """Test MQTT config with defaults."""
     config = MQTTConfig(
-        broker="localhost", subscribe_topic="test/input", publish_topic="test/output"
+        broker="localhost",
+        subscribe_topic="test/input",
+        publish_topic="test/output",
     )
     assert config.port == 1883
     assert config.qos == 0
@@ -17,7 +19,7 @@ def test_mqtt_config_defaults():
     assert config.subscribe_path == "$.text"
 
 
-def test_mqtt_config_validation():
+def test_mqtt_config_validation() -> None:
     """Test MQTT config validation."""
     with pytest.raises(ValidationError):
         MQTTConfig(
@@ -28,7 +30,7 @@ def test_mqtt_config_validation():
         )
 
 
-def test_ollama_config_defaults():
+def test_ollama_config_defaults() -> None:
     """Test Ollama config with defaults."""
     config = OllamaConfig(model="llama3")
     assert config.api_url == "http://localhost:11434"
@@ -37,10 +39,12 @@ def test_ollama_config_defaults():
     assert config.system_prompt == "You are a helpful assistant."
 
 
-def test_app_config():
+def test_app_config() -> None:
     """Test complete app configuration."""
     mqtt_config = MQTTConfig(
-        broker="localhost", subscribe_topic="test/input", publish_topic="test/output"
+        broker="localhost",
+        subscribe_topic="test/input",
+        publish_topic="test/output",
     )
     ollama_config = OllamaConfig(model="llama3")
 
@@ -48,10 +52,12 @@ def test_app_config():
     assert app_config.log_level == "INFO"
 
 
-def test_log_level_validation():
+def test_log_level_validation() -> None:
     """Test log level validation."""
     mqtt_config = MQTTConfig(
-        broker="localhost", subscribe_topic="test/input", publish_topic="test/output"
+        broker="localhost",
+        subscribe_topic="test/input",
+        publish_topic="test/output",
     )
     ollama_config = OllamaConfig(model="llama3")
 

@@ -5,7 +5,7 @@ import json
 import logging
 import re
 import unicodedata
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 import paho.mqtt.client as mqtt
 from jsonpath_ng import parse
@@ -23,14 +23,18 @@ class MQTTClient:
         self.client: Optional[mqtt.Client] = None
         self.connected = False
         self.message_handler: Optional[Callable[[str], None]] = None
-        self.async_message_handler = None
+        self.async_message_handler: Optional[
+            Union[Callable[[str], None], Callable]
+        ] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def set_message_handler(self, handler: Callable[[str], None]) -> None:
         """Set the message handler callback."""
         self.message_handler = handler
 
-    def set_async_message_handler(self, handler) -> None:
+    def set_async_message_handler(
+        self, handler: Union[Callable[[str], None], Callable]
+    ) -> None:
         """Set the async message handler callback."""
         self.async_message_handler = handler
 
@@ -43,7 +47,9 @@ class MQTTClient:
             self.logger.info(f"Connected to MQTT broker {self.config.broker}")
             # Subscribe to the configured topic
             client.subscribe(self.config.subscribe_topic, qos=self.config.qos)
-            self.logger.info(f"Subscribed to topic: {self.config.subscribe_topic}")
+            self.logger.info(
+                f"Subscribed to topic: {self.config.subscribe_topic}"
+            )
         else:
             self.connected = False
             error_messages = {
@@ -53,16 +59,22 @@ class MQTTClient:
                 4: "Connection refused - bad username or password",
                 5: "Connection refused - not authorised",
             }
-            error_msg = error_messages.get(rc, f"Connection failed with code {rc}")
+            error_msg = error_messages.get(
+                rc, f"Connection failed with code {rc}"
+            )
             self.logger.error(f"MQTT connection failed: {error_msg}")
 
-    def _on_disconnect(self, client: mqtt.Client, userdata: Any, rc: int) -> None:
+    def _on_disconnect(
+        self, client: mqtt.Client, userdata: Any, rc: int
+    ) -> None:
         """Handle MQTT disconnection event."""
         self.connected = False
         if rc == 0:
             self.logger.info("Disconnected from MQTT broker")
         else:
-            self.logger.warning(f"Unexpected disconnection from MQTT broker: {rc}")
+            self.logger.warning(
+                f"Unexpected disconnection from MQTT broker: {rc}"
+            )
 
     def _on_message(
         self, client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage
@@ -70,7 +82,9 @@ class MQTTClient:
         """Handle incoming MQTT messages."""
         try:
             payload = message.payload.decode("utf-8")
-            self.logger.debug(f"Received message on topic {message.topic}: {payload}")
+            self.logger.debug(
+                f"Received message on topic {message.topic}: {payload}"
+            )
 
             # Extract text content based on configuration
             extracted_text = self._extract_text_content(payload)
@@ -85,7 +99,9 @@ class MQTTClient:
                 if self.async_message_handler:
                     try:
                         # Use thread-safe scheduling to run async handler in main event loop
-                        if asyncio.iscoroutinefunction(self.async_message_handler):
+                        if asyncio.iscoroutinefunction(
+                            self.async_message_handler
+                        ):
                             if self._loop and not self._loop.is_closed():
                                 # Schedule the coroutine to run in the main event loop
                                 asyncio.run_coroutine_threadsafe(
@@ -99,7 +115,9 @@ class MQTTClient:
                         else:
                             self.async_message_handler(extracted_text)
                     except Exception as e:
-                        self.logger.error(f"Error scheduling async handler: {e}")
+                        self.logger.error(
+                            f"Error scheduling async handler: {e}"
+                        )
                 elif self.message_handler:
                     self.message_handler(extracted_text)
                 else:
@@ -180,7 +198,9 @@ class MQTTClient:
         """Handle subscription confirmation."""
         self.logger.debug(f"Subscription confirmed with QoS: {granted_qos}")
 
-    def _on_publish(self, client: mqtt.Client, userdata: Any, mid: int) -> None:
+    def _on_publish(
+        self, client: mqtt.Client, userdata: Any, mid: int
+    ) -> None:
         """Handle publish confirmation."""
         self.logger.debug(f"Message published with mid: {mid}")
 
@@ -204,7 +224,9 @@ class MQTTClient:
 
             # Set authentication if provided
             if self.config.username and self.config.password:
-                self.client.username_pw_set(self.config.username, self.config.password)
+                self.client.username_pw_set(
+                    self.config.username, self.config.password
+                )
                 self.logger.info("MQTT authentication configured")
 
             # Connect to broker
@@ -253,7 +275,9 @@ class MQTTClient:
             )
 
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(f"Response published to {self.config.publish_topic}")
+                self.logger.info(
+                    f"Response published to {self.config.publish_topic}"
+                )
                 self.logger.debug(f"Published response: {formatted_response}")
             else:
                 self.logger.error(f"Failed to publish response: {result.rc}")
@@ -273,7 +297,9 @@ class MQTTClient:
 
             if isinstance(template, str):
                 # Check if string template is actually JSON
-                if template.strip().startswith("{") and template.strip().endswith("}"):
+                if template.strip().startswith(
+                    "{"
+                ) and template.strip().endswith("}"):
                     try:
                         # Try to parse as JSON template with placeholder replacement
                         # First, replace the placeholder with a safe temporary marker
@@ -283,23 +309,29 @@ class MQTTClient:
                         json_template = json.loads(temp_template)
 
                         # Now recursively replace placeholders in the parsed JSON
-                        def replace_placeholders(obj):
+                        def replace_placeholders(obj: Any) -> Any:
                             if isinstance(obj, str):
                                 return obj.replace(
-                                    "__RESPONSE_PLACEHOLDER__", sanitized_response
+                                    "__RESPONSE_PLACEHOLDER__",
+                                    sanitized_response,
                                 )
                             elif isinstance(obj, dict):
                                 return {
-                                    k: replace_placeholders(v) for k, v in obj.items()
+                                    k: replace_placeholders(v)
+                                    for k, v in obj.items()
                                 }
                             elif isinstance(obj, list):
-                                return [replace_placeholders(item) for item in obj]
+                                return [
+                                    replace_placeholders(item) for item in obj
+                                ]
                             else:
                                 return obj
 
                         formatted_json = replace_placeholders(json_template)
                         formatted_response = json.dumps(formatted_json)
-                        self.logger.debug(f"JSON template result: {formatted_response}")
+                        self.logger.debug(
+                            f"JSON template result: {formatted_response}"
+                        )
                         return formatted_response
                     except json.JSONDecodeError:
                         # Fall through to simple string template
@@ -312,15 +344,19 @@ class MQTTClient:
             elif isinstance(template, dict):
                 # JSON template - replace placeholders in the dict
                 formatted_template = json.dumps(template)
-                self.logger.debug(f"JSON template string: {formatted_template}")
+                self.logger.debug(
+                    f"JSON template string: {formatted_template}"
+                )
                 formatted_response = formatted_template.format(
                     response=sanitized_response
                 )
-                self.logger.debug(f"JSON template result: {formatted_response}")
+                self.logger.debug(
+                    f"JSON template result: {formatted_response}"
+                )
                 return formatted_response
             else:
                 # Fallback to plain response
-                self.logger.debug(
+                self.logger.debug(  # type: ignore[unreachable]
                     f"Using fallback (plain response): {sanitized_response}"
                 )
                 return sanitized_response
@@ -384,7 +420,9 @@ class MQTTClient:
             text = text.encode("ascii", "ignore").decode("ascii")
 
             # Remove any remaining control characters
-            text = "".join(char for char in text if unicodedata.category(char) != "Cc")
+            text = "".join(
+                char for char in text if unicodedata.category(char) != "Cc"
+            )
 
             # Clean up extra spaces created by removals
             text = " ".join(text.split())
@@ -398,7 +436,9 @@ class MQTTClient:
             return text
 
         except Exception as e:
-            self.logger.warning(f"Error sanitizing response: {e}, returning original")
+            self.logger.warning(
+                f"Error sanitizing response: {e}, returning original"
+            )
             return response
 
     def is_connected(self) -> bool:

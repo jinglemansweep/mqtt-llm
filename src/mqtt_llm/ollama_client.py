@@ -18,12 +18,14 @@ class OllamaClient:
         self.logger = logging.getLogger(__name__)
         self.session: Optional[aiohttp.ClientSession] = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "OllamaClient":
         """Async context manager entry."""
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: type, exc_val: Exception, exc_tb: object
+    ) -> None:
         """Async context manager exit."""
         await self.disconnect()
 
@@ -39,10 +41,14 @@ class OllamaClient:
 
         timeout = aiohttp.ClientTimeout(total=self.config.timeout)
         self.session = aiohttp.ClientSession(
-            headers=headers, timeout=timeout, connector=aiohttp.TCPConnector(limit=10)
+            headers=headers,
+            timeout=timeout,
+            connector=aiohttp.TCPConnector(limit=10),
         )
 
-        self.logger.info(f"Ollama client initialized for {self.config.api_url}")
+        self.logger.info(
+            f"Ollama client initialized for {self.config.api_url}"
+        )
 
     async def disconnect(self) -> None:
         """Close HTTP session."""
@@ -54,7 +60,9 @@ class OllamaClient:
     async def generate_response(self, message: str) -> str:
         """Generate response from Ollama API."""
         if not self.session:
-            raise RuntimeError("Ollama client not connected. Call connect() first.")
+            raise RuntimeError(
+                "Ollama client not connected. Call connect() first."
+            )
 
         try:
             # Prepare the request payload
@@ -71,12 +79,14 @@ class OllamaClient:
             # Make API request
             url = f"{self.config.api_url.rstrip('/')}/api/generate"
             self.logger.debug(f"Making request to: {url}")
-            self.logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
+            self.logger.debug(
+                f"Request payload: {json.dumps(payload, indent=2)}"
+            )
 
             async with self.session.post(url, json=payload) as response:
                 if response.status == 200:
                     data = await response.json()
-                    generated_response = data.get("response", "")
+                    generated_response: str = data.get("response", "")
 
                     self.logger.info(
                         f"Generated response for model {self.config.model}"
@@ -107,7 +117,9 @@ class OllamaClient:
     async def chat_response(self, messages: list) -> str:
         """Generate chat response from Ollama API using chat endpoint."""
         if not self.session:
-            raise RuntimeError("Ollama client not connected. Call connect() first.")
+            raise RuntimeError(
+                "Ollama client not connected. Call connect() first."
+            )
 
         try:
             # Prepare the request payload for chat endpoint
@@ -126,19 +138,23 @@ class OllamaClient:
                     "role": "system",
                     "content": self.config.system_prompt,
                 }
-                if "messages" in payload and isinstance(payload["messages"], list):
+                if "messages" in payload and isinstance(
+                    payload["messages"], list
+                ):
                     payload["messages"].insert(0, system_message)
 
             # Make API request
             url = f"{self.config.api_url.rstrip('/')}/api/chat"
             self.logger.debug(f"Making chat request to: {url}")
-            self.logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
+            self.logger.debug(
+                f"Request payload: {json.dumps(payload, indent=2)}"
+            )
 
             async with self.session.post(url, json=payload) as response:
                 if response.status == 200:
                     data = await response.json()
                     message = data.get("message", {})
-                    generated_response = message.get("content", "")
+                    generated_response: str = message.get("content", "")
 
                     self.logger.info(
                         f"Generated chat response for model {self.config.model}"
@@ -231,7 +247,7 @@ class OllamaClient:
                         if data and isinstance(data, dict)
                         else []
                     )
-                    return models
+                    return models  # type: ignore[no-any-return]
                 else:
                     error_text = await response.text()
                     raise Exception(f"Failed to list models: {error_text}")

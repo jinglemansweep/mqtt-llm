@@ -10,125 +10,125 @@ import click
 from .config import AppConfig
 
 
-@click.command()
-@click.option(
+@click.command()  # type: ignore[misc]
+@click.option(  # type: ignore[misc]
     "--mqtt-broker",
     help="MQTT broker address (required). Can also be set via MQTT_BROKER environment variable.",
     envvar="MQTT_BROKER",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-port",
     type=int,
     default=1883,
     help="MQTT broker port (default: 1883). Environment: MQTT_PORT",
     envvar="MQTT_PORT",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-username",
     help="MQTT username for authentication (optional). Environment: MQTT_USERNAME",
     envvar="MQTT_USERNAME",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-password",
     help="MQTT password for authentication (optional). Environment: MQTT_PASSWORD",
     envvar="MQTT_PASSWORD",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-client-id",
     help="MQTT client ID (default: auto-generated). Environment: MQTT_CLIENT_ID",
     envvar="MQTT_CLIENT_ID",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-subscribe-topic",
     help="MQTT topic to subscribe to for incoming messages (required). Environment: MQTT_SUBSCRIBE_TOPIC",
     envvar="MQTT_SUBSCRIBE_TOPIC",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-subscribe-path",
     default="$.text",
     help="JSONPath expression to extract text from incoming messages (default: $.text). Environment: MQTT_SUBSCRIBE_PATH",
     envvar="MQTT_SUBSCRIBE_PATH",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-publish-topic",
     help="MQTT topic to publish LLM responses to (required). Environment: MQTT_PUBLISH_TOPIC",
     envvar="MQTT_PUBLISH_TOPIC",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-publish-template",
     default="{response}",
     help="Template for formatting response messages. Use {response} placeholder (default: {response}). Environment: MQTT_PUBLISH_TEMPLATE",
     envvar="MQTT_PUBLISH_TEMPLATE",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-qos",
     type=click.IntRange(0, 2),
     default=0,
     help="MQTT Quality of Service level: 0=at most once, 1=at least once, 2=exactly once (default: 0). Environment: MQTT_QOS",
     envvar="MQTT_QOS",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-retain/--no-mqtt-retain",
     default=False,
     help="Whether to retain MQTT messages (default: no-retain). Environment: MQTT_RETAIN",
     envvar="MQTT_RETAIN",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-sanitize-response/--no-mqtt-sanitize-response",
     default=False,
     help="Remove formatting, newlines, unicode, emojis from LLM responses (default: no-sanitize). Environment: MQTT_SANITIZE_RESPONSE",
     envvar="MQTT_SANITIZE_RESPONSE",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--mqtt-trigger-pattern",
     default="@ai",
     help="Regex pattern that must be present in message to trigger AI call (default: @ai). Environment: MQTT_TRIGGER_PATTERN",
     envvar="MQTT_TRIGGER_PATTERN",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-api-url",
     default="http://localhost:11434",
     help="Ollama API base URL (default: http://localhost:11434). Environment: OLLAMA_API_URL",
     envvar="OLLAMA_API_URL",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-api-key",
     help="Ollama API key for authentication (optional). Environment: OLLAMA_API_KEY",
     envvar="OLLAMA_API_KEY",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-model",
     help="Ollama model name to use (required). Environment: OLLAMA_MODEL",
     envvar="OLLAMA_MODEL",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-system-prompt",
     default="You are a helpful assistant.",
     help="System prompt to guide the LLM behavior (default: 'You are a helpful assistant.'). Environment: OLLAMA_SYSTEM_PROMPT",
     envvar="OLLAMA_SYSTEM_PROMPT",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-timeout",
     type=float,
     default=30.0,
     help="Timeout for Ollama API requests in seconds (default: 30.0). Environment: OLLAMA_TIMEOUT",
     envvar="OLLAMA_TIMEOUT",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--ollama-max-tokens",
     type=int,
     default=1000,
     help="Maximum number of tokens to generate in response (default: 1000). Environment: OLLAMA_MAX_TOKENS",
     envvar="OLLAMA_MAX_TOKENS",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--log-level",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
     default="INFO",
     help="Application logging level (default: INFO). Environment: LOG_LEVEL",
     envvar="LOG_LEVEL",
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--dry-run",
     is_flag=True,
     help="Validate configuration and display settings without starting the bridge",
@@ -205,18 +205,21 @@ def main(
             else int(os.getenv("MQTT_PORT", "1883")),
             username=mqtt_username or os.getenv("MQTT_USERNAME"),
             password=mqtt_password or os.getenv("MQTT_PASSWORD"),
-            client_id=mqtt_client_id or os.getenv("MQTT_CLIENT_ID", str(uuid4())),
+            client_id=mqtt_client_id
+            or os.getenv("MQTT_CLIENT_ID", str(uuid4())),
             subscribe_topic=mqtt_subscribe_topic
             or os.getenv("MQTT_SUBSCRIBE_TOPIC", ""),
             subscribe_path=mqtt_subscribe_path
             if mqtt_subscribe_path != "$.text"
             else os.getenv("MQTT_SUBSCRIBE_PATH", "$.text"),
-            publish_topic=mqtt_publish_topic or os.getenv("MQTT_PUBLISH_TOPIC", ""),
+            publish_topic=mqtt_publish_topic
+            or os.getenv("MQTT_PUBLISH_TOPIC", ""),
             publish_template=mqtt_publish_template
             if mqtt_publish_template != "{response}"
             else os.getenv("MQTT_PUBLISH_TEMPLATE", "{response}"),
             qos=mqtt_qos if mqtt_qos != 0 else int(os.getenv("MQTT_QOS", "0")),
-            retain=mqtt_retain or os.getenv("MQTT_RETAIN", "false").lower() == "true",
+            retain=mqtt_retain
+            or os.getenv("MQTT_RETAIN", "false").lower() == "true",
             sanitize_response=mqtt_sanitize_response
             or os.getenv("MQTT_SANITIZE_RESPONSE", "false").lower() == "true",
             trigger_pattern=mqtt_trigger_pattern
@@ -232,7 +235,9 @@ def main(
             model=ollama_model or os.getenv("OLLAMA_MODEL", ""),
             system_prompt=ollama_system_prompt
             if ollama_system_prompt != "You are a helpful assistant."
-            else os.getenv("OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."),
+            else os.getenv(
+                "OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."
+            ),
             timeout=ollama_timeout
             if ollama_timeout != 30.0
             else float(os.getenv("OLLAMA_TIMEOUT", "30.0")),

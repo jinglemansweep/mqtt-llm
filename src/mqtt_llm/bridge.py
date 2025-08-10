@@ -41,7 +41,9 @@ class MQTTLLMBridge:
                     self.mqtt_client.publish_response(response)
                     self.logger.info("Response published successfully")
                 else:
-                    self.logger.error("MQTT client not available for publishing")
+                    self.logger.error(
+                        "MQTT client not available for publishing"
+                    )
             else:
                 self.logger.warning("Empty response from Ollama")
 
@@ -56,7 +58,7 @@ class MQTTLLMBridge:
         """Set up signal handlers for graceful shutdown."""
         loop = asyncio.get_running_loop()
 
-        def signal_handler():
+        def signal_handler() -> None:
             self.logger.info("Received shutdown signal, stopping...")
             self.shutdown_event.set()
 
@@ -79,18 +81,25 @@ class MQTTLLMBridge:
 
             # Initialize MQTT client
             self.mqtt_client = MQTTClient(self.config.mqtt)
-            self.mqtt_client.set_async_message_handler(self._handle_mqtt_message)
+            self.mqtt_client.set_async_message_handler(
+                self._handle_mqtt_message
+            )
             self.mqtt_client.connect()
 
             # Wait for MQTT connection
             retry_count = 0
             max_retries = 30  # 30 seconds
-            while not self.mqtt_client.is_connected() and retry_count < max_retries:
+            while (
+                not self.mqtt_client.is_connected()
+                and retry_count < max_retries
+            ):
                 await asyncio.sleep(1)
                 retry_count += 1
 
             if not self.mqtt_client.is_connected():
-                raise Exception("Failed to connect to MQTT broker within timeout")
+                raise Exception(
+                    "Failed to connect to MQTT broker within timeout"
+                )
 
             self.running = True
             self.logger.info("MQTT-LLM bridge started successfully")
@@ -130,7 +139,9 @@ class MQTTLLMBridge:
             # Use asyncio.wait_for with a timeout to periodically check for shutdown
             while not self.shutdown_event.is_set():
                 try:
-                    await asyncio.wait_for(self.shutdown_event.wait(), timeout=1.0)
+                    await asyncio.wait_for(
+                        self.shutdown_event.wait(), timeout=1.0
+                    )
                 except asyncio.TimeoutError:
                     # Check if we should continue running
                     if not self.running:
