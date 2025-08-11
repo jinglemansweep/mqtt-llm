@@ -86,6 +86,33 @@ from .config import AppConfig
     envvar="MQTT_TRIGGER_PATTERN",
 )
 @click.option(  # type: ignore[misc]
+    "--mqtt-use-tls/--no-mqtt-use-tls",
+    default=False,
+    help="Enable TLS/SSL for MQTT connection (default: no-tls, automatically enabled for port 8883). Environment: MQTT_USE_TLS",
+    envvar="MQTT_USE_TLS",
+)
+@click.option(  # type: ignore[misc]
+    "--mqtt-tls-ca-certs",
+    help="Path to CA certificates file for TLS validation (optional). Environment: MQTT_TLS_CA_CERTS",
+    envvar="MQTT_TLS_CA_CERTS",
+)
+@click.option(  # type: ignore[misc]
+    "--mqtt-tls-certfile",
+    help="Path to client certificate file for TLS authentication (optional). Environment: MQTT_TLS_CERTFILE",
+    envvar="MQTT_TLS_CERTFILE",
+)
+@click.option(  # type: ignore[misc]
+    "--mqtt-tls-keyfile",
+    help="Path to client private key file for TLS authentication (optional). Environment: MQTT_TLS_KEYFILE",
+    envvar="MQTT_TLS_KEYFILE",
+)
+@click.option(  # type: ignore[misc]
+    "--mqtt-tls-insecure/--no-mqtt-tls-insecure",
+    default=False,
+    help="Skip certificate verification for TLS (insecure, default: no-insecure). Environment: MQTT_TLS_INSECURE",
+    envvar="MQTT_TLS_INSECURE",
+)
+@click.option(  # type: ignore[misc]
     "--ollama-api-url",
     default="http://localhost:11434",
     help="Ollama API base URL (default: http://localhost:11434). Environment: OLLAMA_API_URL",
@@ -147,6 +174,11 @@ def main(
     mqtt_retain: bool,
     mqtt_sanitize_response: bool,
     mqtt_trigger_pattern: str,
+    mqtt_use_tls: bool,
+    mqtt_tls_ca_certs: Optional[str],
+    mqtt_tls_certfile: Optional[str],
+    mqtt_tls_keyfile: Optional[str],
+    mqtt_tls_insecure: bool,
     ollama_api_url: str,
     ollama_api_key: Optional[str],
     ollama_model: Optional[str],
@@ -233,6 +265,13 @@ def main(
                 if mqtt_trigger_pattern != "@ai"
                 else os.getenv("MQTT_TRIGGER_PATTERN", "@ai")
             ),
+            use_tls=mqtt_use_tls
+            or os.getenv("MQTT_USE_TLS", "false").lower() == "true",
+            tls_ca_certs=mqtt_tls_ca_certs or os.getenv("MQTT_TLS_CA_CERTS"),
+            tls_certfile=mqtt_tls_certfile or os.getenv("MQTT_TLS_CERTFILE"),
+            tls_keyfile=mqtt_tls_keyfile or os.getenv("MQTT_TLS_KEYFILE"),
+            tls_insecure=mqtt_tls_insecure
+            or os.getenv("MQTT_TLS_INSECURE", "false").lower() == "true",
         )
 
         ollama_config = OllamaConfig(

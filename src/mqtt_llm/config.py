@@ -39,6 +39,21 @@ class MQTTConfig(BaseModel):
         default="@ai",
         description="Regex pattern that must be present in message to trigger AI call",
     )
+    use_tls: bool = Field(
+        default=False, description="Enable TLS/SSL connection"
+    )
+    tls_ca_certs: Optional[str] = Field(
+        default=None, description="Path to CA certificates file"
+    )
+    tls_certfile: Optional[str] = Field(
+        default=None, description="Path to client certificate file"
+    )
+    tls_keyfile: Optional[str] = Field(
+        default=None, description="Path to client private key file"
+    )
+    tls_insecure: bool = Field(
+        default=False, description="Skip certificate verification (insecure)"
+    )
 
     @field_validator("port")  # type: ignore[misc]
     @classmethod
@@ -117,6 +132,21 @@ class AppConfig(BaseModel):
             ).lower()
             mqtt_sanitize = mqtt_sanitize_str in ("true", "1", "yes", "on")
 
+            # Parse MQTT TLS boolean
+            mqtt_use_tls_str = os.getenv("MQTT_USE_TLS", "false").lower()
+            mqtt_use_tls = mqtt_use_tls_str in ("true", "1", "yes", "on")
+
+            # Parse MQTT TLS insecure boolean
+            mqtt_tls_insecure_str = os.getenv(
+                "MQTT_TLS_INSECURE", "false"
+            ).lower()
+            mqtt_tls_insecure = mqtt_tls_insecure_str in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            )
+
             mqtt_config = MQTTConfig(
                 broker=os.getenv("MQTT_BROKER", ""),
                 port=mqtt_port,
@@ -133,6 +163,11 @@ class AppConfig(BaseModel):
                 retain=mqtt_retain,
                 sanitize_response=mqtt_sanitize,
                 trigger_pattern=os.getenv("MQTT_TRIGGER_PATTERN", "@ai"),
+                use_tls=mqtt_use_tls,
+                tls_ca_certs=os.getenv("MQTT_TLS_CA_CERTS"),
+                tls_certfile=os.getenv("MQTT_TLS_CERTFILE"),
+                tls_keyfile=os.getenv("MQTT_TLS_KEYFILE"),
+                tls_insecure=mqtt_tls_insecure,
             )
 
             # Parse Ollama timeout with validation

@@ -229,6 +229,44 @@ class MQTTClient:
                 )
                 self.logger.info("MQTT authentication configured")
 
+            # Configure TLS if enabled or port 8883 is used
+            if self.config.use_tls or self.config.port == 8883:
+                self.logger.info("Configuring TLS/SSL connection")
+                try:
+                    if (
+                        self.config.tls_ca_certs
+                        or self.config.tls_certfile
+                        or self.config.tls_keyfile
+                    ):
+                        # Custom certificates provided
+                        self.client.tls_set(
+                            ca_certs=self.config.tls_ca_certs,
+                            certfile=self.config.tls_certfile,
+                            keyfile=self.config.tls_keyfile,
+                        )
+                        self.logger.info(
+                            "TLS configured with custom certificates"
+                        )
+                    else:
+                        # Use system default certificates
+                        self.client.tls_set()
+                        self.logger.info(
+                            "TLS configured with system default certificates"
+                        )
+
+                    # Handle certificate verification settings
+                    if self.config.tls_insecure:
+                        import ssl
+
+                        self.client.tls_insecure_set(True)
+                        self.logger.warning(
+                            "TLS certificate verification disabled (insecure)"
+                        )
+
+                except Exception as e:
+                    self.logger.error(f"Failed to configure TLS: {e}")
+                    raise
+
             # Connect to broker
             self.logger.info(
                 f"Connecting to MQTT broker {self.config.broker}:{self.config.port}"
