@@ -113,40 +113,52 @@ from .config import AppConfig
     envvar="MQTT_TLS_INSECURE",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-api-url",
+    "--openai-api-url",
     default="http://localhost:11434",
-    help="Ollama API base URL (default: http://localhost:11434). Environment: OLLAMA_API_URL",
-    envvar="OLLAMA_API_URL",
+    help="OpenAI-compatible API base URL (default: http://localhost:11434 for Ollama). Environment: OPENAI_API_URL",
+    envvar="OPENAI_API_URL",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-api-key",
-    help="Ollama API key for authentication (optional). Environment: OLLAMA_API_KEY",
-    envvar="OLLAMA_API_KEY",
+    "--openai-api-key",
+    help="API key for authentication (optional). Environment: OPENAI_API_KEY",
+    envvar="OPENAI_API_KEY",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-model",
-    help="Ollama model name to use (required). Environment: OLLAMA_MODEL",
-    envvar="OLLAMA_MODEL",
+    "--openai-model",
+    help="Model name to use (required). Examples: llama3, gpt-4, claude-3-sonnet. Environment: OPENAI_MODEL",
+    envvar="OPENAI_MODEL",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-system-prompt",
+    "--openai-system-prompt",
     default="You are a helpful assistant.",
-    help="System prompt to guide the LLM behavior (default: 'You are a helpful assistant.'). Environment: OLLAMA_SYSTEM_PROMPT",
-    envvar="OLLAMA_SYSTEM_PROMPT",
+    help="System prompt to guide the LLM behavior (default: 'You are a helpful assistant.'). Environment: OPENAI_SYSTEM_PROMPT",
+    envvar="OPENAI_SYSTEM_PROMPT",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-timeout",
+    "--openai-timeout",
     type=float,
     default=30.0,
-    help="Timeout for Ollama API requests in seconds (default: 30.0). Environment: OLLAMA_TIMEOUT",
-    envvar="OLLAMA_TIMEOUT",
+    help="Timeout for API requests in seconds (default: 30.0). Environment: OPENAI_TIMEOUT",
+    envvar="OPENAI_TIMEOUT",
 )
 @click.option(  # type: ignore[misc]
-    "--ollama-max-tokens",
+    "--openai-max-tokens",
     type=int,
     default=1000,
-    help="Maximum number of tokens to generate in response (default: 1000). Environment: OLLAMA_MAX_TOKENS",
-    envvar="OLLAMA_MAX_TOKENS",
+    help="Maximum number of tokens to generate in response (default: 1000). Environment: OPENAI_MAX_TOKENS",
+    envvar="OPENAI_MAX_TOKENS",
+)
+@click.option(  # type: ignore[misc]
+    "--openai-temperature",
+    type=float,
+    help="Sampling temperature (0.0-2.0, optional). Environment: OPENAI_TEMPERATURE",
+    envvar="OPENAI_TEMPERATURE",
+)
+@click.option(  # type: ignore[misc]
+    "--openai-skip-health-check/--no-openai-skip-health-check",
+    default=False,
+    help="Skip health check on startup (useful for APIs that don't support /v1/models). Environment: OPENAI_SKIP_HEALTH_CHECK",
+    envvar="OPENAI_SKIP_HEALTH_CHECK",
 )
 @click.option(  # type: ignore[misc]
     "--log-level",
@@ -179,19 +191,21 @@ def main(
     mqtt_tls_certfile: Optional[str],
     mqtt_tls_keyfile: Optional[str],
     mqtt_tls_insecure: bool,
-    ollama_api_url: str,
-    ollama_api_key: Optional[str],
-    ollama_model: Optional[str],
-    ollama_system_prompt: str,
-    ollama_timeout: float,
-    ollama_max_tokens: int,
+    openai_api_url: str,
+    openai_api_key: Optional[str],
+    openai_model: Optional[str],
+    openai_system_prompt: str,
+    openai_timeout: float,
+    openai_max_tokens: int,
+    openai_temperature: Optional[float],
+    openai_skip_health_check: bool,
     log_level: str,
     dry_run: bool,
 ) -> None:
-    """MQTT to Ollama bridge application.
+    """MQTT to OpenAI-compatible LLM bridge application.
 
-    This application connects MQTT messages to Ollama LLM API, allowing you to send
-    messages via MQTT and receive AI-generated responses back through MQTT.
+    This application connects MQTT messages to OpenAI-compatible APIs (Ollama, OpenRouter, etc.),
+    allowing you to send messages via MQTT and receive AI-generated responses back through MQTT.
 
     \b
     Configuration Priority (highest to lowest):
@@ -204,11 +218,11 @@ def main(
     - MQTT broker address (--mqtt-broker or MQTT_BROKER)
     - MQTT subscribe topic (--mqtt-subscribe-topic or MQTT_SUBSCRIBE_TOPIC)
     - MQTT publish topic (--mqtt-publish-topic or MQTT_PUBLISH_TOPIC)
-    - Ollama model name (--ollama-model or OLLAMA_MODEL)
+    - Model name (--openai-model or OPENAI_MODEL)
 
     \b
     Example Usage:
-    mqtt-llm --mqtt-broker mqtt.example.com --mqtt-subscribe-topic input/messages --mqtt-publish-topic output/responses --ollama-model llama3
+    mqtt-llm --mqtt-broker mqtt.example.com --mqtt-subscribe-topic input/messages --mqtt-publish-topic output/responses --openai-model llama3
 
     \b
     Environment Variables:
@@ -227,7 +241,7 @@ def main(
         logger.info("Loading configuration from environment and CLI arguments")
 
         # Build config from CLI arguments and environment
-        from .config import MQTTConfig, OllamaConfig
+        from .config import MQTTConfig, OpenAIConfig
 
         # CLI arguments override environment variables
         mqtt_config = MQTTConfig(
@@ -274,36 +288,50 @@ def main(
             or os.getenv("MQTT_TLS_INSECURE", "false").lower() == "true",
         )
 
-        ollama_config = OllamaConfig(
+        openai_config = OpenAIConfig(
             api_url=(
-                ollama_api_url
-                if ollama_api_url != "http://localhost:11434"
-                else os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+                openai_api_url
+                if openai_api_url != "http://localhost:11434"
+                else os.getenv("OPENAI_API_URL", "http://localhost:11434")
             ),
-            api_key=ollama_api_key or os.getenv("OLLAMA_API_KEY"),
-            model=ollama_model or os.getenv("OLLAMA_MODEL", ""),
+            api_key=openai_api_key or os.getenv("OPENAI_API_KEY"),
+            model=openai_model or os.getenv("OPENAI_MODEL", ""),
             system_prompt=(
-                ollama_system_prompt
-                if ollama_system_prompt != "You are a helpful assistant."
+                openai_system_prompt
+                if openai_system_prompt != "You are a helpful assistant."
                 else os.getenv(
-                    "OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."
+                    "OPENAI_SYSTEM_PROMPT", "You are a helpful assistant."
                 )
             ),
             timeout=(
-                ollama_timeout
-                if ollama_timeout != 30.0
-                else float(os.getenv("OLLAMA_TIMEOUT", "30.0"))
+                openai_timeout
+                if openai_timeout != 30.0
+                else float(os.getenv("OPENAI_TIMEOUT", "30.0"))
             ),
             max_tokens=(
-                ollama_max_tokens
-                if ollama_max_tokens != 1000
-                else int(os.getenv("OLLAMA_MAX_TOKENS", "1000"))
+                openai_max_tokens
+                if openai_max_tokens != 1000
+                else int(os.getenv("OPENAI_MAX_TOKENS", "1000"))
+            ),
+            temperature=(
+                openai_temperature
+                if openai_temperature is not None
+                else (
+                    float(temp_str)
+                    if (temp_str := os.getenv("OPENAI_TEMPERATURE"))
+                    else None
+                )
+            ),
+            skip_health_check=(
+                openai_skip_health_check
+                or os.getenv("OPENAI_SKIP_HEALTH_CHECK", "false").lower()
+                == "true"
             ),
         )
 
         app_config = AppConfig(
             mqtt=mqtt_config,
-            ollama=ollama_config,
+            openai=openai_config,
             log_level=(
                 log_level
                 if log_level != "INFO"

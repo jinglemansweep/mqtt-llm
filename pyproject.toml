@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mqtt-llm"
 version = "0.1.0"
-description = "MQTT to Ollama bridge for LLM interactions"
+description = "MQTT to OpenAI-compatible LLM bridge for AI interactions"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
     {name = "MQTT-LLM Contributors"}
 ]
-keywords = ["mqtt", "llm", "ollama", "bridge", "ai"]
+keywords = ["mqtt", "llm", "openai", "ollama", "bridge", "ai", "openrouter"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

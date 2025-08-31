@@ -8,18 +8,18 @@ from typing import Optional
 
 from .config import AppConfig
 from .mqtt_client import MQTTClient
-from .ollama_client import OllamaClient
+from .openai_client import OpenAIClient
 
 
 class MQTTLLMBridge:
-    """Main bridge application connecting MQTT and Ollama."""
+    """Main bridge application connecting MQTT and OpenAI-compatible APIs."""
 
     def __init__(self, config: AppConfig) -> None:
         """Initialize the bridge with configuration."""
         self.config = config
         self.logger = logging.getLogger(__name__)
         self.mqtt_client: Optional[MQTTClient] = None
-        self.ollama_client: Optional[OllamaClient] = None
+        self.openai_client: Optional[OpenAIClient] = None
         self.running = False
         self.shutdown_event = asyncio.Event()
 
@@ -28,12 +28,12 @@ class MQTTLLMBridge:
         try:
             self.logger.info(f"Processing message: {message[:100]}...")
 
-            if not self.ollama_client:
-                self.logger.error("Ollama client not initialized")
+            if not self.openai_client:
+                self.logger.error("OpenAI client not initialized")
                 return
 
-            # Generate response using Ollama
-            response = await self.ollama_client.generate_response(message)
+            # Generate response using OpenAI-compatible API
+            response = await self.openai_client.generate_response(message)
 
             if response:
                 # Publish response back to MQTT
@@ -45,7 +45,7 @@ class MQTTLLMBridge:
                         "MQTT client not available for publishing"
                     )
             else:
-                self.logger.warning("Empty response from Ollama")
+                self.logger.warning("Empty response from API")
 
         except Exception as e:
             self.logger.error(f"Error processing message: {e}")
@@ -71,13 +71,16 @@ class MQTTLLMBridge:
         try:
             self.logger.info("Starting MQTT-LLM bridge...")
 
-            # Initialize Ollama client
-            self.ollama_client = OllamaClient(self.config.ollama)
-            await self.ollama_client.connect()
+            # Initialize OpenAI client
+            self.openai_client = OpenAIClient(self.config.openai)
+            await self.openai_client.connect()
 
-            # Health check for Ollama
-            if not await self.ollama_client.health_check():
-                raise Exception("Ollama health check failed")
+            # Health check for API (if not skipped)
+            if not self.config.openai.skip_health_check:
+                if not await self.openai_client.health_check():
+                    raise Exception("API health check failed")
+            else:
+                self.logger.info("Skipping API health check as requested")
 
             # Initialize MQTT client
             self.mqtt_client = MQTTClient(self.config.mqtt)
@@ -118,9 +121,9 @@ class MQTTLLMBridge:
         if self.mqtt_client:
             self.mqtt_client.disconnect()
 
-        # Disconnect Ollama client
-        if self.ollama_client:
-            await self.ollama_client.disconnect()
+        # Disconnect OpenAI client
+        if self.openai_client:
+            await self.openai_client.disconnect()
 
         self.logger.info("MQTT-LLM bridge stopped")
 
@@ -158,13 +161,13 @@ class MQTTLLMBridge:
     async def run_once(self, message: str) -> str:
         """Process a single message and return response (for testing)."""
         try:
-            # Initialize Ollama client if needed
-            if not self.ollama_client:
-                self.ollama_client = OllamaClient(self.config.ollama)
-                await self.ollama_client.connect()
+            # Initialize OpenAI client if needed
+            if not self.openai_client:
+                self.openai_client = OpenAIClient(self.config.openai)
+                await self.openai_client.connect()
 
             # Generate response
-            response = await self.ollama_client.generate_response(message)
+            response = await self.openai_client.generate_response(message)
             return response
 
         except Exception as e:
@@ -182,8 +185,8 @@ class MQTTLLMBridge:
             "mqtt_connected": (
                 self.mqtt_client.is_connected() if self.mqtt_client else False
             ),
-            "ollama_url": self.config.ollama.api_url,
-            "ollama_model": self.config.ollama.model,
+            "api_url": self.config.openai.api_url,
+            "model": self.config.openai.model,
             "mqtt_broker": f"{self.config.mqtt.broker}:{self.config.mqtt.port}",
             "subscribe_topic": self.config.mqtt.subscribe_topic,
             "publish_topic": self.config.mqtt.publish_topic,

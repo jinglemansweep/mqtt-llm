@@ -23,10 +23,10 @@ class TestEnvironmentConfig:
             "MQTT_PUBLISH_TOPIC": "output/test",
             "MQTT_QOS": "1",
             "MQTT_RETAIN": "true",
-            "OLLAMA_API_URL": "http://test.ollama.com:11434",
-            "OLLAMA_MODEL": "test-model",
-            "OLLAMA_TIMEOUT": "45.0",
-            "OLLAMA_MAX_TOKENS": "500",
+            "OPENAI_API_URL": "http://test.openai.com:11434",
+            "OPENAI_MODEL": "test-model",
+            "OPENAI_TIMEOUT": "45.0",
+            "OPENAI_MAX_TOKENS": "500",
             "LOG_LEVEL": "DEBUG",
         }
 
@@ -43,10 +43,10 @@ class TestEnvironmentConfig:
         assert config.mqtt.publish_topic == "output/test"
         assert config.mqtt.qos == 1
         assert config.mqtt.retain is True
-        assert config.ollama.api_url == "http://test.ollama.com:11434"
-        assert config.ollama.model == "test-model"
-        assert config.ollama.timeout == 45.0
-        assert config.ollama.max_tokens == 500
+        assert config.openai.api_url == "http://test.openai.com:11434"
+        assert config.openai.model == "test-model"
+        assert config.openai.timeout == 45.0
+        assert config.openai.max_tokens == 500
         assert config.log_level == "DEBUG"
 
     def test_from_env_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,12 +64,12 @@ class TestEnvironmentConfig:
             "MQTT_PUBLISH_TEMPLATE",
             "MQTT_QOS",
             "MQTT_RETAIN",
-            "OLLAMA_API_URL",
-            "OLLAMA_API_KEY",
-            "OLLAMA_MODEL",
-            "OLLAMA_SYSTEM_PROMPT",
-            "OLLAMA_TIMEOUT",
-            "OLLAMA_MAX_TOKENS",
+            "OPENAI_API_URL",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "OPENAI_SYSTEM_PROMPT",
+            "OPENAI_TIMEOUT",
+            "OPENAI_MAX_TOKENS",
             "LOG_LEVEL",
         ]
         for var in env_vars:
@@ -85,9 +85,9 @@ class TestEnvironmentConfig:
         assert config.mqtt.publish_template == "{response}"
         assert config.mqtt.qos == 0
         assert config.mqtt.retain is False
-        assert config.ollama.api_url == "http://localhost:11434"
-        assert config.ollama.timeout == 30.0
-        assert config.ollama.max_tokens == 1000
+        assert config.openai.api_url == "http://localhost:11434"
+        assert config.openai.timeout == 30.0
+        assert config.openai.max_tokens == 1000
         assert config.log_level == "INFO"
 
     def test_from_env_invalid_port(
@@ -111,20 +111,20 @@ class TestEnvironmentConfig:
     def test_from_env_invalid_timeout(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test error handling for invalid Ollama timeout."""
-        monkeypatch.setenv("OLLAMA_TIMEOUT", "not_a_float")
+        """Test error handling for invalid OpenAI timeout."""
+        monkeypatch.setenv("OPENAI_TIMEOUT", "not_a_float")
 
-        with pytest.raises(ValueError, match="Invalid OLLAMA_TIMEOUT value"):
+        with pytest.raises(ValueError, match="Invalid OPENAI_TIMEOUT value"):
             AppConfig.from_env()
 
     def test_from_env_invalid_max_tokens(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test error handling for invalid max tokens."""
-        monkeypatch.setenv("OLLAMA_MAX_TOKENS", "not_an_int")
+        monkeypatch.setenv("OPENAI_MAX_TOKENS", "not_an_int")
 
         with pytest.raises(
-            ValueError, match="Invalid OLLAMA_MAX_TOKENS value"
+            ValueError, match="Invalid OPENAI_MAX_TOKENS value"
         ):
             AppConfig.from_env()
 
@@ -157,37 +157,37 @@ class TestConfigValidation:
 
     def test_validate_config_success(self) -> None:
         """Test successful configuration validation."""
-        from mqtt_llm.config import MQTTConfig, OllamaConfig
+        from mqtt_llm.config import MQTTConfig, OpenAIConfig
 
         mqtt_config = MQTTConfig(
             broker="test.mqtt.com",
             subscribe_topic="input/test",
             publish_topic="output/test",
         )
-        ollama_config = OllamaConfig(model="test-model")
-        config = AppConfig(mqtt=mqtt_config, ollama=ollama_config)
+        openai_config = OpenAIConfig(model="test-model")
+        config = AppConfig(mqtt=mqtt_config, openai=openai_config)
 
         # Should not raise any exception
         config.validate_config()
 
     def test_validate_config_missing_broker(self) -> None:
         """Test validation fails with missing MQTT broker."""
-        from mqtt_llm.config import MQTTConfig, OllamaConfig
+        from mqtt_llm.config import MQTTConfig, OpenAIConfig
 
         mqtt_config = MQTTConfig(
             broker="",  # Empty broker
             subscribe_topic="input/test",
             publish_topic="output/test",
         )
-        ollama_config = OllamaConfig(model="test-model")
-        config = AppConfig(mqtt=mqtt_config, ollama=ollama_config)
+        openai_config = OpenAIConfig(model="test-model")
+        config = AppConfig(mqtt=mqtt_config, openai=openai_config)
 
         with pytest.raises(ValueError, match="MQTT broker is required"):
             config.validate_config()
 
     def test_validate_config_invalid_qos(self) -> None:
         """Test validation fails with invalid QoS during creation."""
-        from mqtt_llm.config import MQTTConfig, OllamaConfig
+        from mqtt_llm.config import MQTTConfig, OpenAIConfig
 
         # Test that Pydantic validation catches invalid QoS at creation time
         with pytest.raises(
@@ -201,23 +201,23 @@ class TestConfigValidation:
             )
 
     def test_validate_config_missing_model(self) -> None:
-        """Test validation fails with missing Ollama model."""
-        from mqtt_llm.config import MQTTConfig, OllamaConfig
+        """Test validation fails with missing model name."""
+        from mqtt_llm.config import MQTTConfig, OpenAIConfig
 
         mqtt_config = MQTTConfig(
             broker="test.mqtt.com",
             subscribe_topic="input/test",
             publish_topic="output/test",
         )
-        ollama_config = OllamaConfig(model="")  # Empty model
-        config = AppConfig(mqtt=mqtt_config, ollama=ollama_config)
+        openai_config = OpenAIConfig(model="")  # Empty model
+        config = AppConfig(mqtt=mqtt_config, openai=openai_config)
 
-        with pytest.raises(ValueError, match="Ollama model is required"):
+        with pytest.raises(ValueError, match="Model name is required"):
             config.validate_config()
 
     def test_get_summary(self) -> None:
         """Test configuration summary generation."""
-        from mqtt_llm.config import MQTTConfig, OllamaConfig
+        from mqtt_llm.config import MQTTConfig, OpenAIConfig
 
         mqtt_config = MQTTConfig(
             broker="test.mqtt.com",
@@ -227,14 +227,14 @@ class TestConfigValidation:
             qos=1,
             retain=True,
         )
-        ollama_config = OllamaConfig(
+        openai_config = OpenAIConfig(
             model="test-model",
             api_url="http://test.com:11434",
             timeout=45.0,
             max_tokens=500,
         )
         config = AppConfig(
-            mqtt=mqtt_config, ollama=ollama_config, log_level="DEBUG"
+            mqtt=mqtt_config, openai=openai_config, log_level="DEBUG"
         )
 
         summary = config.get_summary()
@@ -246,10 +246,10 @@ class TestConfigValidation:
             "mqtt_qos",
             "mqtt_retain",
             "mqtt_trigger_pattern",
-            "ollama_api_url",
-            "ollama_model",
-            "ollama_timeout",
-            "ollama_max_tokens",
+            "openai_api_url",
+            "openai_model",
+            "openai_timeout",
+            "openai_max_tokens",
             "log_level",
         }
 
@@ -260,8 +260,8 @@ class TestConfigValidation:
         assert summary["mqtt_qos"] == 1
         assert summary["mqtt_retain"] is True
         assert summary["mqtt_trigger_pattern"] == "@ai"
-        assert summary["ollama_api_url"] == "http://test.com:11434"
-        assert summary["ollama_model"] == "test-model"
-        assert summary["ollama_timeout"] == 45.0
-        assert summary["ollama_max_tokens"] == 500
+        assert summary["openai_api_url"] == "http://test.com:11434"
+        assert summary["openai_model"] == "test-model"
+        assert summary["openai_timeout"] == 45.0
+        assert summary["openai_max_tokens"] == 500
         assert summary["log_level"] == "DEBUG"

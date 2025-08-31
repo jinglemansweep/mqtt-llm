@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from mqtt_llm.config import AppConfig, MQTTConfig, OllamaConfig
+from mqtt_llm.config import AppConfig, MQTTConfig, OpenAIConfig
 
 
 def test_mqtt_config_defaults() -> None:
@@ -30,13 +30,14 @@ def test_mqtt_config_validation() -> None:
         )
 
 
-def test_ollama_config_defaults() -> None:
-    """Test Ollama config with defaults."""
-    config = OllamaConfig(model="llama3")
+def test_openai_config_defaults() -> None:
+    """Test OpenAI config with defaults."""
+    config = OpenAIConfig(model="llama3")
     assert config.api_url == "http://localhost:11434"
     assert config.timeout == 30.0
     assert config.max_tokens == 1000
     assert config.system_prompt == "You are a helpful assistant."
+    assert config.temperature is None
 
 
 def test_app_config() -> None:
@@ -46,9 +47,9 @@ def test_app_config() -> None:
         subscribe_topic="test/input",
         publish_topic="test/output",
     )
-    ollama_config = OllamaConfig(model="llama3")
+    openai_config = OpenAIConfig(model="llama3")
 
-    app_config = AppConfig(mqtt=mqtt_config, ollama=ollama_config)
+    app_config = AppConfig(mqtt=mqtt_config, openai=openai_config)
     assert app_config.log_level == "INFO"
 
 
@@ -59,7 +60,7 @@ def test_log_level_validation() -> None:
         subscribe_topic="test/input",
         publish_topic="test/output",
     )
-    ollama_config = OllamaConfig(model="llama3")
+    openai_config = OpenAIConfig(model="llama3")
 
     with pytest.raises(ValidationError):
-        AppConfig(mqtt=mqtt_config, ollama=ollama_config, log_level="INVALID")
+        AppConfig(mqtt=mqtt_config, openai=openai_config, log_level="INVALID")

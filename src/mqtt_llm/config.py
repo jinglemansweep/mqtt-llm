@@ -64,14 +64,19 @@ class MQTTConfig(BaseModel):
         return v
 
 
-class OllamaConfig(BaseModel):
-    """Ollama API configuration settings."""
+class OpenAIConfig(BaseModel):
+    """OpenAI-compatible API configuration settings."""
 
     api_url: str = Field(
-        default="http://localhost:11434", description="Ollama API URL"
+        default="http://localhost:11434",
+        description="OpenAI-compatible API URL (e.g., Ollama, OpenRouter)",
     )
-    api_key: Optional[str] = Field(default=None, description="Ollama API key")
-    model: str = Field(..., description="Ollama model name")
+    api_key: Optional[str] = Field(
+        default=None, description="API key for authentication"
+    )
+    model: str = Field(
+        ..., description="Model name (e.g., llama3, gpt-4, claude-3-sonnet)"
+    )
     system_prompt: str = Field(
         default="You are a helpful assistant.",
         description="System prompt for LLM",
@@ -82,13 +87,23 @@ class OllamaConfig(BaseModel):
     max_tokens: int = Field(
         default=1000, gt=0, description="Maximum tokens in response"
     )
+    temperature: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature (0.0-2.0)",
+    )
+    skip_health_check: bool = Field(
+        default=False,
+        description="Skip health check on startup (useful for APIs that don't support /v1/models)",
+    )
 
 
 class AppConfig(BaseModel):
     """Main application configuration."""
 
     mqtt: MQTTConfig
-    ollama: OllamaConfig
+    openai: OpenAIConfig
     log_level: str = Field(default="INFO", description="Logging level")
 
     @field_validator("log_level")  # type: ignore[misc]
@@ -170,38 +185,62 @@ class AppConfig(BaseModel):
                 tls_insecure=mqtt_tls_insecure,
             )
 
-            # Parse Ollama timeout with validation
-            ollama_timeout_str = os.getenv("OLLAMA_TIMEOUT", "30.0")
+            # Parse OpenAI timeout with validation
+            openai_timeout_str = os.getenv("OPENAI_TIMEOUT", "30.0")
             try:
-                ollama_timeout = float(ollama_timeout_str)
+                openai_timeout = float(openai_timeout_str)
             except ValueError:
                 raise ValueError(
-                    f"Invalid OLLAMA_TIMEOUT value: {ollama_timeout_str}. Must be a number."
+                    f"Invalid OPENAI_TIMEOUT value: {openai_timeout_str}. Must be a number."
                 )
 
-            # Parse Ollama max tokens with validation
-            ollama_max_tokens_str = os.getenv("OLLAMA_MAX_TOKENS", "1000")
+            # Parse OpenAI max tokens with validation
+            openai_max_tokens_str = os.getenv("OPENAI_MAX_TOKENS", "1000")
             try:
-                ollama_max_tokens = int(ollama_max_tokens_str)
+                openai_max_tokens = int(openai_max_tokens_str)
             except ValueError:
                 raise ValueError(
-                    f"Invalid OLLAMA_MAX_TOKENS value: {ollama_max_tokens_str}. Must be an integer."
+                    f"Invalid OPENAI_MAX_TOKENS value: {openai_max_tokens_str}. Must be an integer."
                 )
 
-            ollama_config = OllamaConfig(
-                api_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
-                api_key=os.getenv("OLLAMA_API_KEY"),
-                model=os.getenv("OLLAMA_MODEL", ""),
+            # Parse OpenAI temperature with validation
+            openai_temperature_str = os.getenv("OPENAI_TEMPERATURE")
+            openai_temperature = None
+            if openai_temperature_str:
+                try:
+                    openai_temperature = float(openai_temperature_str)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid OPENAI_TEMPERATURE value: {openai_temperature_str}. Must be a number."
+                    )
+
+            # Parse skip health check boolean
+            skip_health_check_str = os.getenv(
+                "OPENAI_SKIP_HEALTH_CHECK", "false"
+            ).lower()
+            skip_health_check = skip_health_check_str in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            )
+
+            openai_config = OpenAIConfig(
+                api_url=os.getenv("OPENAI_API_URL", "http://localhost:11434"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+                model=os.getenv("OPENAI_MODEL", ""),
                 system_prompt=os.getenv(
-                    "OLLAMA_SYSTEM_PROMPT", "You are a helpful assistant."
+                    "OPENAI_SYSTEM_PROMPT", "You are a helpful assistant."
                 ),
-                timeout=ollama_timeout,
-                max_tokens=ollama_max_tokens,
+                timeout=openai_timeout,
+                max_tokens=openai_max_tokens,
+                temperature=openai_temperature,
+                skip_health_check=skip_health_check,
             )
 
             return cls(
                 mqtt=mqtt_config,
-                ollama=ollama_config,
+                openai=openai_config,
                 log_level=os.getenv("LOG_LEVEL", "INFO"),
             )
 
@@ -232,20 +271,29 @@ class AppConfig(BaseModel):
                 f"MQTT port must be between 1-65535, got: {self.mqtt.port}"
             )
 
-        # Validate required Ollama fields
-        if not self.ollama.model:
-            errors.append("Ollama model is required")
+        # Validate required OpenAI fields
+        if not self.openai.model:
+            errors.append("Model name is required")
 
-        # Validate Ollama timeout
-        if self.ollama.timeout <= 0:
+        # Validate OpenAI timeout
+        if self.openai.timeout <= 0:
             errors.append(
-                f"Ollama timeout must be positive, got: {self.ollama.timeout}"
+                f"API timeout must be positive, got: {self.openai.timeout}"
             )
 
-        # Validate Ollama max_tokens
-        if self.ollama.max_tokens <= 0:
+        # Validate OpenAI max_tokens
+        if self.openai.max_tokens <= 0:
             errors.append(
-                f"Ollama max_tokens must be positive, got: {self.ollama.max_tokens}"
+                f"Max tokens must be positive, got: {self.openai.max_tokens}"
+            )
+
+        # Validate temperature if set
+        if (
+            self.openai.temperature is not None
+            and not 0.0 <= self.openai.temperature <= 2.0
+        ):
+            errors.append(
+                f"Temperature must be between 0.0 and 2.0, got: {self.openai.temperature}"
             )
 
         # Validate log level
@@ -270,9 +318,9 @@ class AppConfig(BaseModel):
             "mqtt_qos": self.mqtt.qos,
             "mqtt_retain": self.mqtt.retain,
             "mqtt_trigger_pattern": self.mqtt.trigger_pattern,
-            "ollama_api_url": self.ollama.api_url,
-            "ollama_model": self.ollama.model,
-            "ollama_timeout": self.ollama.timeout,
-            "ollama_max_tokens": self.ollama.max_tokens,
+            "openai_api_url": self.openai.api_url,
+            "openai_model": self.openai.model,
+            "openai_timeout": self.openai.timeout,
+            "openai_max_tokens": self.openai.max_tokens,
             "log_level": self.log_level,
         }
