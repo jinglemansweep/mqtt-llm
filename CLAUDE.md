@@ -67,7 +67,7 @@ pre-commit run --all-files
 
 The application uses a hierarchical configuration system (CLI args > env vars > defaults) managed through Pydantic models:
 
-- **MQTTConfig**: MQTT broker connection, topics, QoS, message processing options
+- **MQTTConfig**: MQTT broker connection, topics, QoS, message processing options, chunking settings
 - **OpenAIConfig**: OpenAI-compatible API URL, model selection, generation parameters, temperature
 - **AppConfig**: Top-level configuration combining MQTT and OpenAI settings
 
@@ -77,6 +77,7 @@ All configuration options can be set via environment variables. Key variables:
 - `OPENAI_MODEL`: Model name (e.g., llama3, gpt-4, claude-3-sonnet)
 - `OPENAI_TEMPERATURE`: Sampling temperature (0.0-2.0)
 - `OPENAI_SKIP_HEALTH_CHECK`: Skip health check on startup (useful for APIs that don't support /v1/models)
+- `MQTT_MESSAGE_MAX_LENGTH`: Maximum message length for auto-chunking (optional)
 - See `src/mqtt_llm/cli.py` for complete list.
 
 ## Message Processing Flow
@@ -85,7 +86,8 @@ All configuration options can be set via environment variables. Key variables:
 2. Message content is extracted using JSONPath (default: `$.text`)
 3. Text is sent to OpenAI-compatible API for processing
 4. Response is formatted using publish template (default: `{response}`)
-5. Response is published to configured MQTT topic
+5. If message chunking is enabled and response exceeds max length, response is split into chunks with "X/Y: " prefixes
+6. Response(s) are published to configured MQTT topic
 
 ## Key Dependencies
 

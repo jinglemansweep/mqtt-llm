@@ -15,6 +15,7 @@ An MQTT-to-LLM bridge application that connects MQTT message brokers to OpenAI-c
 - 📊 **Robust**: Health checks, error handling, and comprehensive logging
 - 🎯 **Message Filtering**: Configurable trigger patterns and JSONPath extraction
 - 🔄 **Template Support**: Customizable response formatting
+- 📝 **Message Chunking**: Automatic splitting of long responses with "1/x:" prefix
 - 🧪 **Well Tested**: Comprehensive test suite with pre-commit hooks
 
 ## Quick Start
@@ -148,6 +149,7 @@ export OPENAI_MODEL=gpt-4
 - `MQTT_USE_TLS`: Enable TLS/SSL (default: false)
 - `MQTT_TRIGGER_PATTERN`: Pattern to trigger AI processing (default: "@ai")
 - `MQTT_SUBSCRIBE_PATH`: JSONPath for text extraction (default: "$.text")
+- `MQTT_MESSAGE_MAX_LENGTH`: Maximum message length for chunking (optional)
 
 ### API Configuration
 - `OPENAI_API_URL`: API base URL (default: http://localhost:11434)
@@ -159,6 +161,27 @@ export OPENAI_MODEL=gpt-4
 - `OPENAI_SKIP_HEALTH_CHECK`: Skip API health check (default: false)
 
 ## Advanced Features
+
+### Message Chunking
+When responses exceed a configured length, they are automatically split into smaller chunks:
+
+```bash
+# Enable message chunking with 280 character limit
+export MQTT_MESSAGE_MAX_LENGTH=280
+```
+
+**How it works:**
+- Long responses are split at word boundaries when possible
+- Each chunk is prefixed with "X/Y: " (e.g., "1/3: ", "2/3: ", "3/3: ")
+- Works with message templates - the prefix is included in the response field
+- Configurable via CLI: `--mqtt-message-max-length 280`
+
+**Example Output:**
+```
+1/3: This is a very long response that has been split into multiple
+2/3: chunks to fit within the configured message length limit. Each
+3/3: chunk is numbered so you know the sequence and total count.
+```
 
 ### TLS/SSL Support
 ```bash

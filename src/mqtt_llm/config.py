@@ -54,6 +54,11 @@ class MQTTConfig(BaseModel):
     tls_insecure: bool = Field(
         default=False, description="Skip certificate verification (insecure)"
     )
+    message_max_length: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description="Maximum message length in characters. If set, long responses will be chunked into multiple messages with '1/x:' prefix",
+    )
 
     @field_validator("port")  # type: ignore[misc]
     @classmethod
@@ -162,6 +167,19 @@ class AppConfig(BaseModel):
                 "on",
             )
 
+            # Parse MQTT message max length with validation
+            mqtt_max_length_str = os.getenv("MQTT_MESSAGE_MAX_LENGTH")
+            mqtt_max_length = None
+            if mqtt_max_length_str:
+                try:
+                    mqtt_max_length = int(mqtt_max_length_str)
+                    if mqtt_max_length <= 0:
+                        raise ValueError("Must be positive")
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid MQTT_MESSAGE_MAX_LENGTH value: {mqtt_max_length_str}. Must be a positive integer."
+                    )
+
             mqtt_config = MQTTConfig(
                 broker=os.getenv("MQTT_BROKER", ""),
                 port=mqtt_port,
@@ -183,6 +201,7 @@ class AppConfig(BaseModel):
                 tls_certfile=os.getenv("MQTT_TLS_CERTFILE"),
                 tls_keyfile=os.getenv("MQTT_TLS_KEYFILE"),
                 tls_insecure=mqtt_tls_insecure,
+                message_max_length=mqtt_max_length,
             )
 
             # Parse OpenAI timeout with validation

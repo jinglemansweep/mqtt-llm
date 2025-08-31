@@ -301,27 +301,122 @@ class MQTTClient:
             return
 
         try:
-            # Format the response using the template
-            formatted_response = self._format_response(response)
+            # Check if chunking is enabled and response needs chunking
+            if (
+                self.config.message_max_length
+                and len(response) > self.config.message_max_length
+            ):
+                self._publish_chunked_response(response)
+            else:
+                # Format and publish single response
+                formatted_response = self._format_response(response)
+                self._publish_single_message(formatted_response)
 
-            # Publish the message
+        except Exception as e:
+            self.logger.error(f"Error publishing response: {e}")
+
+    def _publish_single_message(self, formatted_response: str) -> None:
+        """Publish a single message."""
+        if not self.client:
+            self.logger.error("MQTT client not available")
+            return
+
+        result = self.client.publish(
+            self.config.publish_topic,
+            formatted_response,
+            qos=self.config.qos,
+            retain=self.config.retain,
+        )
+
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            self.logger.info(
+                f"Response published to {self.config.publish_topic}"
+            )
+            self.logger.debug(f"Published response: {formatted_response}")
+        else:
+            self.logger.error(f"Failed to publish response: {result.rc}")
+
+    def _publish_chunked_response(self, response: str) -> None:
+        """Publish response as multiple chunked messages."""
+        if not self.config.message_max_length:
+            raise ValueError("message_max_length must be set for chunking")
+
+        # Calculate chunk size (reserve space for "X/Y: " prefix)
+        prefix_space = 10  # Conservative estimate for "999/999: "
+        chunk_size = self.config.message_max_length - prefix_space
+
+        if chunk_size <= 0:
+            self.logger.error(
+                "Message max length too small for chunking (need space for prefix)"
+            )
+            return
+
+        # Split response into chunks
+        chunks = self._chunk_text(response, chunk_size)
+        total_chunks = len(chunks)
+
+        self.logger.info(
+            f"Splitting response into {total_chunks} chunks "
+            f"(max length: {self.config.message_max_length})"
+        )
+
+        # Publish each chunk with prefix
+        for i, chunk in enumerate(chunks, 1):
+            prefixed_chunk = f"{i}/{total_chunks}: {chunk}"
+            formatted_chunk = self._format_response(prefixed_chunk)
+
+            if not self.client:
+                self.logger.error("MQTT client not available")
+                return
+
             result = self.client.publish(
                 self.config.publish_topic,
-                formatted_response,
+                formatted_chunk,
                 qos=self.config.qos,
                 retain=self.config.retain,
             )
 
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(
-                    f"Response published to {self.config.publish_topic}"
+                self.logger.debug(
+                    f"Published chunk {i}/{total_chunks} to {self.config.publish_topic}"
                 )
-                self.logger.debug(f"Published response: {formatted_response}")
             else:
-                self.logger.error(f"Failed to publish response: {result.rc}")
+                self.logger.error(
+                    f"Failed to publish chunk {i}/{total_chunks}: {result.rc}"
+                )
 
-        except Exception as e:
-            self.logger.error(f"Error publishing response: {e}")
+    def _chunk_text(self, text: str, chunk_size: int) -> list:
+        """Split text into chunks of specified size, preferring word boundaries."""
+        if len(text) <= chunk_size:
+            return [text]
+
+        chunks = []
+        start = 0
+
+        while start < len(text):
+            end = start + chunk_size
+
+            if end >= len(text):
+                # Last chunk
+                chunks.append(text[start:])
+                break
+
+            # Try to find a good breaking point (space, punctuation)
+            break_point = end
+
+            # Look for space within last 20% of chunk
+            look_back = min(chunk_size // 5, 50)
+            search_start = max(end - look_back, start)
+
+            for i in range(end - 1, search_start - 1, -1):
+                if text[i] in " \n\t.!?;,":
+                    break_point = i + 1
+                    break
+
+            chunks.append(text[start:break_point].rstrip())
+            start = break_point
+
+        return [chunk for chunk in chunks if chunk.strip()]
 
     def _format_response(self, response: str) -> str:
         """Format response using the configured template."""

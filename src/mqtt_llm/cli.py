@@ -113,6 +113,12 @@ from .config import AppConfig
     envvar="MQTT_TLS_INSECURE",
 )
 @click.option(  # type: ignore[misc]
+    "--mqtt-message-max-length",
+    type=int,
+    help="Maximum message length in characters. Long responses will be chunked with '1/x:' prefix. Environment: MQTT_MESSAGE_MAX_LENGTH",
+    envvar="MQTT_MESSAGE_MAX_LENGTH",
+)
+@click.option(  # type: ignore[misc]
     "--openai-api-url",
     default="http://localhost:11434",
     help="OpenAI-compatible API base URL (default: http://localhost:11434 for Ollama). Environment: OPENAI_API_URL",
@@ -191,6 +197,7 @@ def main(
     mqtt_tls_certfile: Optional[str],
     mqtt_tls_keyfile: Optional[str],
     mqtt_tls_insecure: bool,
+    mqtt_message_max_length: Optional[int],
     openai_api_url: str,
     openai_api_key: Optional[str],
     openai_model: Optional[str],
@@ -286,6 +293,15 @@ def main(
             tls_keyfile=mqtt_tls_keyfile or os.getenv("MQTT_TLS_KEYFILE"),
             tls_insecure=mqtt_tls_insecure
             or os.getenv("MQTT_TLS_INSECURE", "false").lower() == "true",
+            message_max_length=(
+                mqtt_message_max_length
+                if mqtt_message_max_length is not None
+                else (
+                    int(length_str)
+                    if (length_str := os.getenv("MQTT_MESSAGE_MAX_LENGTH"))
+                    else None
+                )
+            ),
         )
 
         openai_config = OpenAIConfig(
