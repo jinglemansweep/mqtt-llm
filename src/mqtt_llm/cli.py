@@ -278,21 +278,29 @@ def main(
             ),
             qos=mqtt_qos if mqtt_qos != 0 else int(os.getenv("MQTT_QOS", "0")),
             retain=mqtt_retain
-            or os.getenv("MQTT_RETAIN", "false").lower() == "true",
+            if mqtt_retain
+            else os.getenv("MQTT_RETAIN", "false").lower()
+            in ("true", "1", "yes", "on"),
             sanitize_response=mqtt_sanitize_response
-            or os.getenv("MQTT_SANITIZE_RESPONSE", "false").lower() == "true",
+            if mqtt_sanitize_response
+            else os.getenv("MQTT_SANITIZE_RESPONSE", "false").lower()
+            in ("true", "1", "yes", "on"),
             trigger_pattern=(
                 mqtt_trigger_pattern
                 if mqtt_trigger_pattern != "@ai"
                 else os.getenv("MQTT_TRIGGER_PATTERN", "@ai")
             ),
             use_tls=mqtt_use_tls
-            or os.getenv("MQTT_USE_TLS", "false").lower() == "true",
+            if mqtt_use_tls
+            else os.getenv("MQTT_USE_TLS", "false").lower()
+            in ("true", "1", "yes", "on"),
             tls_ca_certs=mqtt_tls_ca_certs or os.getenv("MQTT_TLS_CA_CERTS"),
             tls_certfile=mqtt_tls_certfile or os.getenv("MQTT_TLS_CERTFILE"),
             tls_keyfile=mqtt_tls_keyfile or os.getenv("MQTT_TLS_KEYFILE"),
             tls_insecure=mqtt_tls_insecure
-            or os.getenv("MQTT_TLS_INSECURE", "false").lower() == "true",
+            if mqtt_tls_insecure
+            else os.getenv("MQTT_TLS_INSECURE", "false").lower()
+            in ("true", "1", "yes", "on"),
             message_max_length=(
                 mqtt_message_max_length
                 if mqtt_message_max_length is not None
@@ -338,11 +346,10 @@ def main(
                     else None
                 )
             ),
-            skip_health_check=(
-                openai_skip_health_check
-                or os.getenv("OPENAI_SKIP_HEALTH_CHECK", "false").lower()
-                == "true"
-            ),
+            skip_health_check=openai_skip_health_check
+            if openai_skip_health_check
+            else os.getenv("OPENAI_SKIP_HEALTH_CHECK", "false").lower()
+            in ("true", "1", "yes", "on"),
         )
 
         app_config = AppConfig(

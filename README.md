@@ -1,276 +1,341 @@
 # MQTT-LLM Bridge
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Docker](https://img.shields.io/badge/docker-supported-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Status](https://img.shields.io/badge/status-alpha-orange.svg)
 
-An MQTT-to-LLM bridge application that connects MQTT message brokers to OpenAI-compatible APIs. This application enables you to send messages via MQTT and receive AI-generated responses, supporting local inference with Ollama, cloud APIs like OpenRouter and OpenAI, and any other OpenAI-compatible service.
+Connect MQTT message brokers to OpenAI-compatible APIs (Ollama, OpenRouter, OpenAI) for AI-powered message processing. Extract text from JSON messages, send to LLM, and publish formatted responses.
 
-## Features
+## Quick Start with Docker
 
-- 🔌 **Universal API Support**: Works with Ollama, OpenRouter, OpenAI, and any OpenAI-compatible API
-- 🚀 **Easy Setup**: Simple installation and configuration
-- ⚙️ **Flexible Configuration**: Environment variables, CLI arguments, or configuration files
-- 🔒 **Secure**: TLS/SSL support for MQTT connections with certificate validation
-- 📊 **Robust**: Health checks, error handling, and comprehensive logging
-- 🎯 **Message Filtering**: Configurable trigger patterns and JSONPath extraction
-- 🔄 **Template Support**: Customizable response formatting
-- 📝 **Message Chunking**: Automatic splitting of long responses with "1/x:" prefix
-- 🧪 **Well Tested**: Comprehensive test suite with pre-commit hooks
-
-## Quick Start
-
-### Installation
+### 1. Create Configuration
 
 ```bash
-# Clone the repository
-git clone https://github.com/mqtt-llm/mqtt-llm.git
-cd mqtt-llm
+# Copy example environment file
+cp .env.example .env
 
-# Install the package
-pip install -e .
-
-# Or install with development dependencies
-pip install -e ".[dev]"
+# Edit configuration
+nano .env
 ```
 
-### Basic Usage
+### 2. Basic Docker Setup
 
 ```bash
-# Using Ollama (default)
-mqtt-llm --mqtt-broker localhost \
-         --mqtt-subscribe-topic "input/messages" \
-         --mqtt-publish-topic "output/responses" \
-         --openai-model llama3
-
-# Using OpenRouter
-mqtt-llm --mqtt-broker mqtt.example.com \
-         --mqtt-subscribe-topic "ai/input" \
-         --mqtt-publish-topic "ai/output" \
-         --openai-api-url https://openrouter.ai/api \
-         --openai-api-key "your-api-key" \
-         --openai-model "anthropic/claude-3-haiku"
-
-# Using OpenAI
-mqtt-llm --mqtt-broker mqtt.example.com \
-         --mqtt-subscribe-topic "ai/input" \
-         --mqtt-publish-topic "ai/output" \
-         --openai-api-url https://api.openai.com \
-         --openai-api-key "your-api-key" \
-         --openai-model "gpt-4"
+# Run with Ollama (local inference)
+docker run --rm --env-file .env \
+  -e MQTT_BROKER=your-mqtt-broker.local \
+  -e MQTT_SUBSCRIBE_TOPIC=chat/input \
+  -e MQTT_PUBLISH_TOPIC=chat/output \
+  -e OPENAI_MODEL=llama3 \
+  ghcr.io/mqtt-llm/mqtt-llm:latest
 ```
 
-### Configuration via Environment Variables
+### 3. Docker Compose (Recommended)
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  mqtt-llm:
+    image: ghcr.io/mqtt-llm/mqtt-llm:latest
+    env_file: .env
+    environment:
+      - MQTT_BROKER=mosquitto
+      - MQTT_SUBSCRIBE_TOPIC=chat/input
+      - MQTT_PUBLISH_TOPIC=chat/output
+      - OPENAI_MODEL=llama3
+      - OPENAI_API_URL=http://ollama:11434
+    depends_on:
+      - mosquitto
+      - ollama
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+```
 
 ```bash
-# MQTT Configuration
-export MQTT_BROKER=mqtt.example.com
-export MQTT_SUBSCRIBE_TOPIC=ai/input
-export MQTT_PUBLISH_TOPIC=ai/output
-export MQTT_USE_TLS=true
-
-# API Configuration (OpenRouter example)
-export OPENAI_API_URL=https://openrouter.ai/api
-export OPENAI_API_KEY=your-api-key
-export OPENAI_MODEL=anthropic/claude-3-haiku
-export OPENAI_TEMPERATURE=0.7
-
-# Run the application
-mqtt-llm
+docker-compose up -d
 ```
 
-## Supported APIs
+## Message Processing Examples
 
-### Local Inference
-- **Ollama**: Run models locally (default configuration)
+### JSONPath Extraction
 
-### Cloud APIs
-- **OpenRouter**: Access to 100+ models from various providers
-- **OpenAI**: Official OpenAI API (GPT-4, GPT-3.5, etc.)
-- **Any OpenAI-compatible API**: Services implementing the chat completions format
+The `MQTT_SUBSCRIBE_PATH` setting extracts content from incoming JSON messages:
 
-### API Configuration Examples
-
-#### Ollama (Local)
+#### Simple Text Extraction
 ```bash
-# Default configuration - no additional setup needed
-mqtt-llm --openai-model llama3
+# Input message:
+{"text": "@ai What's the weather?", "user": "alice"}
+
+# Configuration:
+MQTT_SUBSCRIBE_PATH=$.text
+
+# Extracted: "@ai What's the weather?"
 ```
 
-#### OpenRouter
+#### Nested Object Extraction
 ```bash
-export OPENAI_API_URL=https://openrouter.ai/api
-export OPENAI_API_KEY=sk-or-...
-export OPENAI_MODEL=anthropic/claude-3-haiku
-# or: microsoft/wizardlm-2-8x22b, google/gemma-2-9b, etc.
-```
-
-#### OpenAI
-```bash
-export OPENAI_API_URL=https://api.openai.com
-export OPENAI_API_KEY=sk-...
-export OPENAI_MODEL=gpt-4
-```
-
-## Message Processing Flow
-
-1. **Receive**: MQTT messages are received on the subscribe topic
-2. **Filter**: Messages are filtered using a trigger pattern (default: `@ai`)
-3. **Extract**: Text content is extracted using JSONPath (default: `$.text`)
-4. **Process**: Text is sent to the configured LLM API for processing
-5. **Format**: Response is formatted using a template (default: `{response}`)
-6. **Publish**: Response is published to the configured MQTT topic
-
-### Message Format Examples
-
-**Input Message:**
-```json
+# Input message:
 {
-  "text": "@ai What is the capital of France?",
-  "user": "alice",
+  "message": {
+    "content": "@ai Translate: Hello world",
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  "user": {"name": "bob", "id": 123}
+}
+
+# Configuration:
+MQTT_SUBSCRIBE_PATH=$.message.content
+
+# Extracted: "@ai Translate: Hello world"
+```
+
+#### Array Element Extraction
+```bash
+# Input message:
+{
+  "messages": [
+    {"type": "user", "text": "@ai Help me"},
+    {"type": "system", "text": "Processing..."}
+  ]
+}
+
+# Configuration:
+MQTT_SUBSCRIBE_PATH=$.messages[0].text
+
+# Extracted: "@ai Help me"
+```
+
+### Response Templating
+
+The `MQTT_PUBLISH_TEMPLATE` formats the LLM response with additional context:
+
+#### Simple Response
+```bash
+# LLM Response: "The weather is sunny today."
+
+# Template:
+MQTT_PUBLISH_TEMPLATE={response}
+
+# Output: "The weather is sunny today."
+```
+
+#### JSON Response with Metadata
+```bash
+# Template:
+MQTT_PUBLISH_TEMPLATE={"response": "{response}", "model": "llama3", "timestamp": "2024-01-15T10:30:00Z"}
+
+# Output:
+{
+  "response": "The weather is sunny today.",
+  "model": "llama3",
   "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
-**Output Message:**
-```json
-"The capital of France is Paris."
+#### Chat Application Format
+```bash
+# Template:
+MQTT_PUBLISH_TEMPLATE={"user": "ai", "message": "{response}", "channel": 0}
+
+# Output:
+{
+  "user": "ai",
+  "message": "The weather is sunny today.",
+  "channel": 0
+}
 ```
 
-## Configuration Options
+## Configuration Examples
 
-### MQTT Configuration
-- `MQTT_BROKER`: MQTT broker hostname/IP (required)
-- `MQTT_PORT`: MQTT broker port (default: 1883)
-- `MQTT_USERNAME`: MQTT username for authentication
-- `MQTT_PASSWORD`: MQTT password for authentication
-- `MQTT_SUBSCRIBE_TOPIC`: Topic to listen for messages (required)
-- `MQTT_PUBLISH_TOPIC`: Topic to publish responses (required)
-- `MQTT_USE_TLS`: Enable TLS/SSL (default: false)
-- `MQTT_TRIGGER_PATTERN`: Pattern to trigger AI processing (default: "@ai")
-- `MQTT_SUBSCRIBE_PATH`: JSONPath for text extraction (default: "$.text")
-- `MQTT_MESSAGE_MAX_LENGTH`: Maximum message length for chunking (optional)
+### Example 1: Basic Chat Bot
+```bash
+# .env file
+MQTT_BROKER=mqtt.example.com
+MQTT_SUBSCRIBE_TOPIC=chat/messages
+MQTT_SUBSCRIBE_PATH=$.text
+MQTT_PUBLISH_TOPIC=chat/responses
+MQTT_PUBLISH_TEMPLATE={"user": "ai", "text": "{response}"}
+MQTT_TRIGGER_PATTERN=@ai
 
-### API Configuration
-- `OPENAI_API_URL`: API base URL (default: http://localhost:11434)
-- `OPENAI_API_KEY`: API key for authentication
-- `OPENAI_MODEL`: Model name to use (required)
-- `OPENAI_TEMPERATURE`: Sampling temperature 0.0-2.0
-- `OPENAI_MAX_TOKENS`: Maximum response tokens (default: 1000)
-- `OPENAI_SYSTEM_PROMPT`: System prompt (default: "You are a helpful assistant.")
-- `OPENAI_SKIP_HEALTH_CHECK`: Skip API health check (default: false)
+OPENAI_API_URL=http://ollama:11434
+OPENAI_MODEL=llama3
+OPENAI_SYSTEM_PROMPT=You are a helpful chatbot. Keep responses under 200 characters.
+```
+
+### Example 2: Slack/Discord Bot
+```bash
+MQTT_BROKER=your-broker.local
+MQTT_SUBSCRIBE_TOPIC=slack/messages
+MQTT_SUBSCRIBE_PATH=$.event.text
+MQTT_PUBLISH_TOPIC=slack/responses
+MQTT_PUBLISH_TEMPLATE={"channel": "general", "text": "{response}", "username": "AI Bot"}
+MQTT_TRIGGER_PATTERN=<@U12345>
+
+OPENAI_API_URL=https://openrouter.ai/api
+OPENAI_API_KEY=sk-or-your-key-here
+OPENAI_MODEL=anthropic/claude-3-haiku
+```
+
+### Example 3: IoT Device Commands
+```bash
+MQTT_BROKER=iot.local
+MQTT_SUBSCRIBE_TOPIC=devices/+/query
+MQTT_SUBSCRIBE_PATH=$.query
+MQTT_PUBLISH_TOPIC=devices/commands
+MQTT_PUBLISH_TEMPLATE={"device_id": "controller", "command": "{response}", "type": "ai_response"}
+
+OPENAI_API_URL=https://api.openai.com
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_MODEL=gpt-4
+OPENAI_SYSTEM_PROMPT=Convert natural language to IoT commands. Respond only with JSON commands.
+```
+
+## Supported APIs
+
+### Local Inference (Ollama)
+```bash
+OPENAI_API_URL=http://localhost:11434
+OPENAI_MODEL=llama3
+# No API key needed
+```
+
+### OpenRouter (100+ Models)
+```bash
+OPENAI_API_URL=https://openrouter.ai/api
+OPENAI_API_KEY=sk-or-your-key
+OPENAI_MODEL=anthropic/claude-3-haiku
+# Or: google/gemma-2-9b, microsoft/wizardlm-2-8x22b, etc.
+```
+
+### OpenAI Official
+```bash
+OPENAI_API_URL=https://api.openai.com
+OPENAI_API_KEY=sk-your-key
+OPENAI_MODEL=gpt-4
+```
 
 ## Advanced Features
 
 ### Message Chunking
-When responses exceed a configured length, they are automatically split into smaller chunks:
+Split long responses into multiple messages:
 
 ```bash
-# Enable message chunking with 280 character limit
-export MQTT_MESSAGE_MAX_LENGTH=280
-```
+MQTT_MESSAGE_MAX_LENGTH=280  # Twitter-like limit
 
-**How it works:**
-- Long responses are split at word boundaries when possible
-- Each chunk is prefixed with "X/Y: " (e.g., "1/3: ", "2/3: ", "3/3: ")
-- Works with message templates - the prefix is included in the response field
-- Configurable via CLI: `--mqtt-message-max-length 280`
-
-**Example Output:**
-```
-1/3: This is a very long response that has been split into multiple
-2/3: chunks to fit within the configured message length limit. Each
-3/3: chunk is numbered so you know the sequence and total count.
+# Long response becomes:
+# 1/3: This is a very long response that has been split into multiple
+# 2/3: chunks to fit within the configured message length limit. Each
+# 3/3: chunk is numbered so you know the sequence and total count.
 ```
 
 ### TLS/SSL Support
 ```bash
-# Enable TLS with custom certificates
-export MQTT_USE_TLS=true
-export MQTT_TLS_CA_CERTS=/path/to/ca.crt
-export MQTT_TLS_CERTFILE=/path/to/client.crt
-export MQTT_TLS_KEYFILE=/path/to/client.key
+MQTT_USE_TLS=true
+MQTT_TLS_CA_CERTS=/certs/ca.crt
+MQTT_TLS_CERTFILE=/certs/client.crt
+MQTT_TLS_KEYFILE=/certs/client.key
 ```
 
-### Message Templates
+### Response Filtering
 ```bash
-# Custom response template
-export MQTT_PUBLISH_TEMPLATE='{"response": "{response}", "model": "gpt-4", "timestamp": "2024-01-15T10:30:00Z"}'
+MQTT_TRIGGER_PATTERN=@ai|@bot|@assistant  # Multiple triggers
+MQTT_SANITIZE_RESPONSE=true              # Remove emojis/formatting
 ```
 
-### Health Check Options
-```bash
-# Skip health check for APIs that don't support /v1/models
-export OPENAI_SKIP_HEALTH_CHECK=true
-```
+## Alternative Installation
 
-## Development
+For development or if you prefer not using Docker:
 
-### Setup Development Environment
 ```bash
-# Clone and install with dev dependencies
+# Install from PyPI
+pip install mqtt-llm
+
+# Or install from source
 git clone https://github.com/mqtt-llm/mqtt-llm.git
-cd mqtt-llm
-pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pre-commit install
+cd mqtt-llm && pip install -e .
 ```
 
-### Running Tests
+## Configuration Reference
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MQTT_BROKER` | MQTT broker address (required) | `mqtt.example.com` |
+| `MQTT_SUBSCRIBE_TOPIC` | Topic to listen for messages | `chat/input` |
+| `MQTT_SUBSCRIBE_PATH` | JSONPath to extract text | `$.message.text` |
+| `MQTT_PUBLISH_TOPIC` | Topic for responses | `chat/output` |
+| `MQTT_PUBLISH_TEMPLATE` | Response format template | `{"text": "{response}"}` |
+| `MQTT_TRIGGER_PATTERN` | Pattern to trigger AI | `@ai` |
+| `MQTT_MESSAGE_MAX_LENGTH` | Max length for chunking | `280` |
+| `OPENAI_API_URL` | API endpoint URL | `https://openrouter.ai/api` |
+| `OPENAI_API_KEY` | API authentication key | `sk-your-key` |
+| `OPENAI_MODEL` | Model to use | `llama3` |
+| `OPENAI_TEMPERATURE` | Response creativity (0-2) | `0.7` |
+| `OPENAI_MAX_TOKENS` | Max response length | `1000` |
+
+## Testing Your Setup
+
+### 1. Dry Run
 ```bash
-# Run all tests and quality checks
-pre-commit run --all-files
-
-# Run only tests
-pytest
-
-# Run with coverage
-pytest --cov=mqtt_llm
+docker run --rm --env-file .env \
+  ghcr.io/mqtt-llm/mqtt-llm:latest --dry-run
 ```
 
-### Code Quality
-The project uses several tools to maintain code quality:
-- **Black**: Code formatting (79 character line limit)
-- **MyPy**: Static type checking
-- **Flake8**: Code linting
-- **isort**: Import sorting
-- **Bandit**: Security analysis
-- **Pytest**: Unit testing
+### 2. Send Test Message
+```bash
+# Publish test message to your MQTT broker
+mosquitto_pub -h your-broker -t chat/input -m '{"text": "@ai Hello world"}'
 
-## Architecture
+# Watch for response
+mosquitto_sub -h your-broker -t chat/output
+```
 
-The application follows a modular architecture:
+### 3. Health Check
+```bash
+# Check logs for successful startup
+docker logs mqtt-llm-container
+```
 
-- **MQTTLLMBridge**: Main orchestrator coordinating MQTT and API clients
-- **MQTTClient**: Handles MQTT connections and message processing
-- **OpenAIClient**: Manages HTTP connections to OpenAI-compatible APIs
-- **Config Classes**: Pydantic-based configuration with validation
-- **CLI Interface**: Click-based command-line interface
+## Troubleshooting
+
+### Common Issues
+
+**Connection Failed**
+```bash
+# Check MQTT broker connectivity
+mosquitto_pub -h your-broker -t test -m "hello"
+
+# Verify API endpoint
+curl -s http://your-ollama:11434/v1/models
+```
+
+**No Response**
+- Verify trigger pattern matches your message
+- Check JSONPath extracts the right content
+- Confirm API key and model name are correct
+
+**JSON Parse Errors**
+- Ensure publish template uses valid JSON syntax
+- Test template with simple `{response}` first
+
+### Debug Mode
+```bash
+LOG_LEVEL=DEBUG
+OPENAI_SKIP_HEALTH_CHECK=false  # Enable API validation
+```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`pre-commit run --all-files`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+We welcome contributions! See our [development guide](CLAUDE.md) for setup instructions.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📖 [Documentation](https://github.com/mqtt-llm/mqtt-llm/wiki)
-- 🐛 [Bug Reports](https://github.com/mqtt-llm/mqtt-llm/issues)
-- 💬 [Discussions](https://github.com/mqtt-llm/mqtt-llm/discussions)
-
-## Acknowledgments
-
-- Built with [paho-mqtt](https://eclipse.org/paho/) for MQTT connectivity
-- Powered by [aiohttp](https://docs.aiohttp.org/) for async HTTP requests
-- Configuration handled by [Pydantic](https://pydantic-docs.helpmanual.io/)
-- CLI interface built with [Click](https://click.palletsprojects.com/)
+MIT License - see [LICENSE](LICENSE) file for details.
